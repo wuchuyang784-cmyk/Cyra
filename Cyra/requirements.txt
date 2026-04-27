@@ -1,0 +1,18 @@
+# 项目依赖
+# 使用示例：pip install -r requirements.txt
+
+# Web 框架
+# flask==2.3.0
+# fastapi==0.100.0
+
+# AI 相关
+# openai>=1.0.0
+# langchain>=0.1.0
+
+# 数据库
+# pymysql>=1.0.0
+# sqlalchemy>=2.0.0
+
+# 工具库
+# requests>=2.30.0
+# python-dotenv>=1.0.0
