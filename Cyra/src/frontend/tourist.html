@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>玄奘法师 AI 数字人导游</title>
+    <link rel="stylesheet" href="./styles/xuanzang-avatar.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="guide-panel tourist-stage" aria-label="玄奘法师景区导游演示">
+        <div class="avatar-stage" data-speaking="false" data-expression="neutral">
+          <div class="avatar-rig">
+            <img class="avatar-image" src="./assets/characters/xuanzang/xuanzang.png" alt="玄奘法师数字人形象" />
+            <img id="eyeLayer" class="avatar-layer eye-layer" src="./assets/characters/xuanzang/eyes-closed-layer.png" alt="" aria-hidden="true" />
+            <img id="mouthLayer" class="avatar-layer mouth-layer" src="./assets/characters/xuanzang/mouth-half-layer.png" alt="" aria-hidden="true" />
+            <span class="speaking-aura" aria-hidden="true"></span>
+          </div>
+          <div class="voice-meter" aria-hidden="true">
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+        </div>
+
+        <div class="dialogue-panel tourist-chat-panel">
+          <header class="chat-header tourist-chat-header">
+            <div>
+              <p class="role-label">灵山胜境 · 玄奘法师数字人导游</p>
+              <h1>打开即可提问。贫僧会依据官方资料包讲解景点、规划路线，也会记录游客反馈。</h1>
+            </div>
+            <div class="header-actions">
+              <button class="text-button" id="openCommentsButton" type="button">游客热评</button>
+              <button class="icon-button primary" id="newChatButton" type="button" title="新会话">新会话</button>
+            </div>
+          </header>
+
+          <section class="chat-main tourist-chat-main" aria-label="导游互动内容">
+            <section class="dialogue-record tourist-dialogue" aria-label="完整对话记录">
+              <div class="dialogue-record-head">
+                <p class="panel-kicker">对话</p>
+                <span>流式回答 · 语音播报 · 口型同步</span>
+              </div>
+              <div id="messageList" class="message-list" aria-live="polite"></div>
+            </section>
+
+            <div class="recognition-strip" aria-live="polite">
+              <span>实时识别</span>
+              <strong id="asrText"></strong>
+            </div>
+
+            <div class="composer tourist-composer">
+              <div class="quick-panel" aria-label="快捷提问">
+                <div>
+                  <span>景点</span>
+                  <div id="spotTabs" class="spot-tabs compact-tabs" aria-label="景点快捷切换"></div>
+                </div>
+                <div>
+                  <span>路线</span>
+                  <div class="route-tabs" aria-label="路线快捷推荐">
+                    <button class="spot-tab route-chip" type="button" data-interest="历史文化">历史文化</button>
+                    <button class="spot-tab route-chip" type="button" data-interest="亲子家庭">亲子家庭</button>
+                    <button class="spot-tab route-chip" type="button" data-interest="自然风光">自然风光</button>
+                  </div>
+                </div>
+              </div>
+
+              <textarea id="questionInput" rows="3" placeholder="输入问题，或点击开始录音..."></textarea>
+              <div class="controls" aria-label="导游控制">
+                <button class="control-button primary mic-button" id="recordButton" type="button">开始录音</button>
+                <button class="control-button send-button" id="sendButton" type="button">发送问题</button>
+                <button class="control-button stop-button" id="stopButton" type="button">停止播放</button>
+              </div>
+            </div>
+          </section>
+
+          <p id="guideText" class="sr-only"></p>
+          <p id="connectionStatus" class="sr-only" aria-live="polite"></p>
+          <p id="expressionStatus" class="sr-only"></p>
+        </div>
+      </section>
+
+      <div class="drawer-backdrop" id="commentsBackdrop" hidden></div>
+      <aside class="comments-drawer" id="commentsDrawer" aria-label="游客热评" aria-hidden="true">
+        <div class="comments-head">
+          <div>
+            <p class="panel-kicker">游客热评</p>
+            <h2>当前景点：<span id="activeSpotName"></span></h2>
+          </div>
+          <button class="text-button" id="closeCommentsButton" type="button">关闭</button>
+        </div>
+        <p id="activeSpotSummary" class="spot-summary"></p>
+        <button class="text-button primary" id="explainSpotButton" type="button">让玄奘讲这里</button>
+        <div id="commentsList" class="comments-list" aria-live="polite"></div>
+        <div class="comment-composer">
+          <input id="commentInput" type="text" placeholder="写下游览感受或建议..." />
+          <button class="text-button primary" id="publishCommentButton" type="button">提交反馈</button>
+        </div>
+      </aside>
+    </main>
+
+    <script type="module" src="./scripts/app.js"></script>
+  </body>
+</html>

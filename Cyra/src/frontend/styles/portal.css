@@ -1,0 +1,147 @@
+:root {
+  color-scheme: light;
+  --ink: #1f2522;
+  --muted: #61706a;
+  --line: rgba(34, 72, 61, 0.18);
+  --accent: #0f766e;
+  --gold: #b7791f;
+  --panel: rgba(255, 255, 255, 0.9);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--ink);
+  background:
+    linear-gradient(rgba(241, 247, 241, 0.86), rgba(232, 240, 236, 0.9)),
+    url("../assets/characters/xuanzang/xuanzang-chroma.png");
+  background-size: cover;
+  background-position: center;
+  font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+}
+
+.portal-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 28px;
+}
+
+.portal-hero {
+  width: min(1180px, 100%);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 32px;
+  align-items: center;
+}
+
+.eyebrow {
+  margin: 0 0 12px;
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(36px, 6vw, 72px);
+  line-height: 1.05;
+  letter-spacing: 0;
+}
+
+.summary {
+  max-width: 760px;
+  margin: 20px 0 28px;
+  color: var(--muted);
+  font-size: 20px;
+  line-height: 1.7;
+}
+
+.entry-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.entry-card {
+  min-height: 118px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--ink);
+  text-decoration: none;
+  box-shadow: 0 18px 38px rgba(28, 58, 49, 0.1);
+}
+
+.entry-card.primary {
+  border-color: rgba(15, 118, 110, 0.52);
+  background: #0f766e;
+  color: #fff;
+}
+
+.entry-card span {
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.entry-card strong {
+  font-size: 22px;
+  line-height: 1.35;
+}
+
+.demo-panel {
+  min-height: 500px;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  align-items: end;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 252, 244, 0.78);
+  box-shadow: 0 22px 50px rgba(28, 58, 49, 0.12);
+}
+
+.demo-panel img {
+  width: min(100%, 300px);
+  justify-self: center;
+  filter: drop-shadow(0 18px 28px rgba(82, 43, 23, 0.22));
+}
+
+.demo-panel div {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.demo-panel p {
+  margin: 0;
+  color: var(--gold);
+  font-weight: 900;
+}
+
+.demo-panel strong {
+  font-size: 14px;
+}
+
+@media (max-width: 820px) {
+  .portal-hero,
+  .entry-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .demo-panel {
+    min-height: 360px;
+  }
+}
