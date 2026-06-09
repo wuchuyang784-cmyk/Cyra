@@ -7,6 +7,8 @@ __pycache__/
 .venv/
 node_modules/
 project/
+src/backend/chroma_db/
+src/frontend/assets/live2d/
 
 .idea/
 src/.idea/

@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     dashscope_api_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
     dashscope_embedding_model: str = "text-embedding-v3"
     dashscope_embedding_dimension: int = 1024
-    chroma_persist_dir: str = "../../chroma_db"
+    chroma_persist_dir: str = "src/backend/chroma_db"
     dashscope_tts_model: str = "cosyvoice-v3-flash"
     dashscope_tts_voice: str = "Chelsie"
     dashscope_tts_format: str = "mp3"
