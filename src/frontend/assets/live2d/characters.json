@@ -1,0 +1,17 @@
+{
+  "characters": [
+    {
+      "id": "mao_pro",
+      "name": "Mao Pro 导游",
+      "role": "Live2D 示例数字人",
+      "model": "./assets/live2d/mao_pro/mao_pro.model3.json",
+      "maxScale": 0.16,
+      "stageWidthRatio": 0.58,
+      "stageHeightRatio": 0.82,
+      "anchorX": 0.5,
+      "anchorY": 0.52,
+      "offsetX": 0,
+      "offsetY": 70
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic-settings==2.7.1
+python-dotenv==1.0.1
+python-docx==1.1.2
+openpyxl==3.1.5
+dashscope==1.24.6
+chromadb==1.0.20
+openai-whisper
+python-multipart==0.0.20
+imageio-ffmpeg==0.6.0

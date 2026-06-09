@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>园区管理后台 · Cyra</title>
+    <link rel="stylesheet" href="./styles/admin.css" />
+  </head>
+  <body>
+    <main class="admin-shell">
+      <header class="admin-header">
+        <div>
+          <p>园区管理后台</p>
+          <h1>灵山胜境 AI 数字人运营看板</h1>
+        </div>
+        <nav class="admin-actions" aria-label="后台导航">
+          <a id="knowledgeManagementLink" href="./knowledge.html">知识库管理</a>
+        </nav>
+      </header>
+
+      <section class="metrics-grid" id="metricsGrid"></section>
+
+      <section class="admin-layout">
+        <article class="panel large">
+          <div class="panel-head">
+            <div>
+              <p>游客感受度报告</p>
+              <h2>关注点、满意度与服务建议</h2>
+            </div>
+            <button id="refreshButton" type="button">刷新</button>
+          </div>
+          <div id="reportBox" class="report-box"></div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <div>
+              <p>行业对比</p>
+              <h2>热门景区满意度</h2>
+            </div>
+          </div>
+          <div id="topAttractions" class="rank-list"></div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <div>
+              <p>游客画像</p>
+              <h2>年龄与性别分布</h2>
+            </div>
+          </div>
+          <div id="profileBox" class="bars"></div>
+        </article>
+      </section>
+    </main>
+
+    <script type="module" src="./scripts/admin.js"></script>
+  </body>
+</html>

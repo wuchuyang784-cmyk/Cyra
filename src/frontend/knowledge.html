@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>知识库管理 · Cyra</title>
+    <link rel="stylesheet" href="./styles/knowledge.css" />
+  </head>
+  <body>
+    <main class="knowledge-shell">
+      <header class="knowledge-header">
+        <div>
+          <p>资料管理工作台</p>
+          <h1>灵山胜境知识库管理</h1>
+        </div>
+        <nav class="knowledge-nav" aria-label="知识库导航">
+          <a href="./admin.html">返回管理后台</a>
+        </nav>
+      </header>
+
+      <section class="knowledge-stats" id="knowledgeStats"></section>
+
+      <section class="knowledge-workbench">
+        <aside class="knowledge-aside">
+          <form class="knowledge-upload" id="knowledgeUploadForm">
+            <label>
+              <span>上传知识文件</span>
+              <input id="knowledgeFileInput" type="file" accept=".txt,.md,.docx" />
+            </label>
+            <button type="submit">上传入库</button>
+            <p id="knowledgeUploadStatus" role="status"></p>
+          </form>
+
+          <section class="knowledge-guide">
+            <p>支持格式</p>
+            <strong>.txt · .md · .docx</strong>
+            <span>上传后会写入知识库并参与游客问答检索。</span>
+          </section>
+        </aside>
+
+        <section class="knowledge-browser">
+          <div class="knowledge-tools">
+            <label>
+              <span>检索知识条目</span>
+              <input id="knowledgeSearchInput" type="search" placeholder="按标题、来源或正文搜索" />
+            </label>
+          </div>
+          <div id="knowledgeList" class="knowledge-list"></div>
+        </section>
+
+        <form class="knowledge-editor" id="knowledgeEditorForm">
+          <input id="knowledgeEditorId" type="hidden" />
+          <div class="editor-head">
+            <div>
+              <p>条目编辑</p>
+              <h2>选中左侧条目后修改</h2>
+            </div>
+          </div>
+          <label>
+            <span>标题</span>
+            <input id="knowledgeTitleInput" type="text" maxlength="120" />
+          </label>
+          <label>
+            <span>正文</span>
+            <textarea id="knowledgeContentInput" rows="14" maxlength="6000"></textarea>
+          </label>
+          <div class="knowledge-editor-actions">
+            <button type="submit">保存修改</button>
+            <button id="knowledgeDeleteButton" type="button">删除条目</button>
+          </div>
+          <p id="knowledgeEditorStatus" role="status"></p>
+        </form>
+      </section>
+    </main>
+
+    <script type="module" src="./scripts/knowledge.js"></script>
+  </body>
+</html>
