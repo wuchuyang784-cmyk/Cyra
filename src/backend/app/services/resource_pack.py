@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from io import BytesIO
+import json
 import logging
 import math
 import re
@@ -25,6 +26,7 @@ STRUCTURED_DOC = RESOURCE_DIR / "灵山胜境 景点结构化数据集.docx"
 GUIDE_DOC = RESOURCE_DIR / "灵山胜境：历史、文化、景点特色与个性化游览指南.docx"
 BEHAVIOR_XLSX = RESOURCE_DIR / "景点景区旅游数据行为分析数据.xlsx"
 UPLOADED_KNOWLEDGE_DIR = RESOURCE_DIR / "uploaded_knowledge"
+KNOWLEDGE_OVERRIDES_FILE = RESOURCE_DIR / "knowledge_overrides.json"
 SUPPORTED_KNOWLEDGE_EXTENSIONS = {".txt", ".md", ".docx"}
 
 SPOT_COLUMNS = [
@@ -90,11 +92,7 @@ class ResourcePack:
     @classmethod
     def load(cls) -> "ResourcePack":
         pack = cls()
-        pack.spots = _load_spots()
-        pack.chunks = _load_guide_chunks()
-        pack.chunks.extend(_load_uploaded_knowledge())
-        pack.chunks.extend(_spot_to_chunks(pack.spots))
-        pack._rebuild_vector_store()
+        pack.chunks = _load_uploaded_knowledge()
         return pack
 
     def list_spots(self, limit: int = 24) -> list[dict[str, Any]]:
@@ -112,11 +110,20 @@ class ResourcePack:
 
     def search(self, query: str, limit: int = 5) -> list[KnowledgeHit]:
         terms = _terms(query)
-        if not terms:
-            return []
-        compact_query = re.sub(r"\s+", "", query.lower())
+        compact_query = _compact_text(query)
+        direct_spot_titles = {
+            _plain_title(chunk["title"])
+            for chunk in self.chunks
+            if chunk["id"].startswith("spot-") and _plain_title(chunk["title"]) in compact_query
+        }
         hits: list[KnowledgeHit] = []
         for chunk in self.chunks:
+            if (
+                direct_spot_titles
+                and not chunk["id"].startswith("spot-")
+                and any(title in re.sub(r"\s+", "", f"{chunk['title']} {chunk['content']}".lower()) for title in direct_spot_titles)
+            ):
+                continue
             text = f"{chunk['title']} {chunk['content']}"
             score = _score(text, terms)
             if chunk["title"] and _plain_title(chunk["title"]) in compact_query:
@@ -132,6 +139,14 @@ class ResourcePack:
                     )
                 )
         hits.sort(key=lambda item: item.score, reverse=True)
+        if direct_spot_titles:
+            direct_hits = [
+                hit
+                for hit in hits
+                if hit.id.startswith("spot-") and _plain_title(hit.title) in direct_spot_titles
+            ]
+            if direct_hits:
+                return direct_hits[:limit]
         return hits[:limit]
 
     def context_for(self, query: str, limit: int = 4) -> tuple[str, list[dict[str, str]]]:
@@ -221,6 +236,8 @@ class ResourcePack:
                     spot["name"] = title
                 if content:
                     spot["description"] = content
+                    spot["_content_overridden"] = "true"
+                _save_spot_override(spot)
                 self._rebuild_spot_chunks()
                 return {"id": item_id, "title": spot["name"], "content": spot["description"]}
         for chunk in self.chunks:
@@ -274,6 +291,9 @@ class ResourcePack:
             # Keyword search remains available when embeddings are not configured.
             logger.warning("ChromaDB vector rebuild skipped: %s", error)
             return
+
+    def rebuild_vector_store(self) -> None:
+        self._rebuild_vector_store()
 
     def _delete_vector_chunks(self, chunks: list[dict[str, str]]) -> None:
         try:
@@ -411,6 +431,51 @@ def _load_spots() -> list[dict[str, Any]]:
     return spots
 
 
+def _load_knowledge_overrides() -> dict[str, dict[str, str]]:
+    if not KNOWLEDGE_OVERRIDES_FILE.exists():
+        return {}
+    try:
+        data = json.loads(KNOWLEDGE_OVERRIDES_FILE.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    return {
+        str(item_id): {str(key): str(value) for key, value in item.items() if isinstance(value, str)}
+        for item_id, item in data.items()
+        if isinstance(item, dict)
+    }
+
+
+def _apply_spot_overrides(spots: list[dict[str, Any]]) -> None:
+    overrides = _load_knowledge_overrides()
+    for spot in spots:
+        override = overrides.get(str(spot.get("spot_id") or ""))
+        if not override:
+            continue
+        if override.get("title"):
+            spot["name"] = override["title"]
+        if override.get("content"):
+            spot["description"] = override["content"]
+            spot["_content_overridden"] = "true"
+
+
+def _save_spot_override(spot: dict[str, Any]) -> None:
+    overrides = _load_knowledge_overrides()
+    spot_id = str(spot.get("spot_id") or "")
+    if not spot_id:
+        return
+    overrides[spot_id] = {
+        "title": str(spot.get("name") or ""),
+        "content": str(spot.get("description") or ""),
+    }
+    KNOWLEDGE_OVERRIDES_FILE.parent.mkdir(parents=True, exist_ok=True)
+    KNOWLEDGE_OVERRIDES_FILE.write_text(
+        json.dumps(overrides, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
 def _load_guide_chunks() -> list[dict[str, str]]:
     if not GUIDE_DOC.exists():
         return []
@@ -535,20 +600,29 @@ def _uploaded_chunk(source_name: str, index: int, content: str) -> dict[str, str
 def _spot_to_chunks(spots: list[dict[str, Any]]) -> list[dict[str, str]]:
     chunks = []
     for spot in spots:
-        content = "\n".join(
-            [
-                f"景区：{spot['scenic_name']}",
-                f"景点：{spot['name']}",
-                f"位置：{spot['location']}",
-                f"建筑/景观参数：{spot['parameters']}",
-                f"核心功能：{spot['function']}",
-                f"文化内涵：{spot['culture']}",
-                f"详细介绍：{spot['description']}",
-                f"游玩亮点：{spot['highlights']}",
-                f"演艺/开放信息：{spot['open_info']}",
-                f"备注：{spot['notes']}",
-            ]
-        )
+        if spot.get("_content_overridden") == "true":
+            content = "\n".join(
+                [
+                    f"景区：{spot['scenic_name']}",
+                    f"景点：{spot['name']}",
+                    f"正文：{spot['description']}",
+                ]
+            )
+        else:
+            content = "\n".join(
+                [
+                    f"景区：{spot['scenic_name']}",
+                    f"景点：{spot['name']}",
+                    f"位置：{spot['location']}",
+                    f"建筑/景观参数：{spot['parameters']}",
+                    f"核心功能：{spot['function']}",
+                    f"文化内涵：{spot['culture']}",
+                    f"详细介绍：{spot['description']}",
+                    f"游玩亮点：{spot['highlights']}",
+                    f"演艺/开放信息：{spot['open_info']}",
+                    f"备注：{spot['notes']}",
+                ]
+            )
         chunks.append(
             {
                 "id": f"spot-{spot['spot_id']}",
@@ -575,7 +649,11 @@ def _terms(text: str) -> list[str]:
 
 def _plain_title(title: str) -> str:
     plain = re.split(r"\s+-\s+", title)[-1]
-    return re.sub(r"\s+", "", plain.lower())
+    return _compact_text(plain)
+
+
+def _compact_text(text: str) -> str:
+    return re.sub(r"[^\u4e00-\u9fffA-Za-z0-9]+", "", text.lower())
 
 
 def _score(text: str, terms: list[str]) -> float:

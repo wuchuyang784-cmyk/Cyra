@@ -7,8 +7,11 @@
     <link rel="stylesheet" href="./styles/tourist.css" />
   </head>
   <body>
-    <main class="tourist-shell">
+    <main class="tourist-shell immersive-stage">
       <section class="live2d-stage" id="live2d-stage" aria-label="景区 AI 数字人导游舞台">
+        <img class="background-image" id="backgroundImage" alt="" aria-hidden="true" />
+        <div class="scenic-backdrop" aria-hidden="true"></div>
+
         <div class="stage-toolbar" aria-label="数字人和背景设置">
           <label class="field">
             <span>数字人</span>
@@ -18,18 +21,15 @@
             <input id="backgroundUpload" type="file" accept="image/png,image/jpeg,image/webp" />
             <span>上传背景</span>
           </label>
-          <button id="clearBackground" type="button" title="恢复白色背景">白底</button>
+          <button id="clearBackground" type="button" title="恢复默认背景">默认</button>
         </div>
 
-        <div class="stage-status" id="stageStatus" role="status">正在准备 Live2D 数字人...</div>
-        <canvas id="live2dCanvas" aria-label="Live2D 数字人画布"></canvas>
-      </section>
-
-      <aside class="guide-panel" aria-label="游客对话与导览操作">
-        <header class="guide-header">
+        <header class="hero-title" aria-label="导览主题">
           <p>灵山胜境</p>
-          <h1>景区 AI 数字人导游</h1>
+          <h1>AI 数字人导游</h1>
         </header>
+
+        <canvas id="live2dCanvas" aria-label="Live2D 数字人画布"></canvas>
 
         <section class="conversation" id="conversation" aria-label="对话区">
           <div class="message guide">
@@ -38,48 +38,22 @@
           </div>
         </section>
 
-        <form class="chat-form" id="chatForm">
+        <form class="chat-form tourist-composer" id="chatForm">
+          <label class="icon-upload-button" title="上传图片">
+            <input id="imageUpload" type="file" accept="image/png,image/jpeg,image/webp" />
+            <span aria-hidden="true">+</span>
+            <span class="sr-only">上传图片</span>
+          </label>
+          <button id="voiceInputButton" class="voice-input-button" type="button" aria-label="语音输入">
+            <span aria-hidden="true">🎙</span>
+          </button>
           <label class="sr-only" for="messageInput">输入想咨询的问题</label>
-          <input id="messageInput" type="text" placeholder="想了解哪个景点？" autocomplete="off" />
-          <button id="voiceInputButton" class="voice-input-button" type="button" aria-label="语音输入">语音</button>
-          <button type="submit">发送</button>
+          <input id="messageInput" type="text" placeholder="问问景点、路线或拍照建议..." autocomplete="off" />
+          <button class="send-button" type="submit">发送</button>
         </form>
 
-        <section class="action-section" aria-label="景点快捷提问">
-          <div class="section-head">
-            <p>景点快捷提问</p>
-          </div>
-          <div class="quick-actions" id="quickQuestions">
-            <button type="button" data-question="介绍一下灵山大佛">灵山大佛</button>
-            <button type="button" data-question="九龙灌浴有什么看点">九龙灌浴</button>
-            <button type="button" data-question="灵山梵宫适合游览多久">灵山梵宫</button>
-            <button type="button" data-question="五印坛城有什么文化特色">五印坛城</button>
-          </div>
-        </section>
-
-        <section class="action-section" aria-label="路线推荐入口">
-          <div class="section-head">
-            <p>路线推荐</p>
-          </div>
-          <div class="quick-actions route-actions" id="routeActions">
-            <button type="button" data-question="推荐一条历史文化路线">历史文化</button>
-            <button type="button" data-question="推荐一条亲子家庭路线">亲子家庭</button>
-            <button type="button" data-question="推荐一条轻松拍照路线">轻松拍照</button>
-          </div>
-        </section>
-
-        <section class="feedback-panel" id="feedbackPanel" aria-label="游客反馈入口">
-          <div>
-            <p>游客反馈</p>
-            <strong>今天的导览体验如何？</strong>
-          </div>
-          <div class="feedback-actions">
-            <button type="button" data-feedback="满意">满意</button>
-            <button type="button" data-feedback="一般">一般</button>
-            <button type="button" data-feedback="待改进">待改进</button>
-          </div>
-        </section>
-      </aside>
+        <div class="stage-status" id="stageStatus" role="status">正在准备 Live2D 数字人...</div>
+      </section>
     </main>
 
     <script defer src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"></script>

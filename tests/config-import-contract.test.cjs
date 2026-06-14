@@ -9,7 +9,11 @@ const script = `
 from app.core.config import Settings
 
 default_voice = Settings.model_fields["dashscope_tts_voice"].default
-assert default_voice == "Chelsie", default_voice
+assert default_voice == "longyingmu", default_voice
+embedding_model = Settings.model_fields["dashscope_embedding_model"].default
+embedding_dimension = Settings.model_fields["dashscope_embedding_dimension"].default
+assert embedding_model == "text-embedding-v2", embedding_model
+assert embedding_dimension == 1536, embedding_dimension
 print("Config import contract passed")
 `;
 
@@ -21,3 +25,21 @@ const result = spawnSync(python, ["-c", script], {
 
 assert.strictEqual(result.status, 0, result.stderr || result.stdout);
 assert(result.stdout.includes("Config import contract passed"));
+
+const projectRootScript = `
+from app.core.config import get_settings
+
+settings = get_settings()
+assert settings.dashscope_tts_voice == "longyingmu", settings.dashscope_tts_voice
+assert settings.dashscope_api_key, "src/backend/.env should be loaded from project root"
+print("Project root env contract passed")
+`;
+
+const projectRootResult = spawnSync(python, ["-c", projectRootScript], {
+  cwd: root,
+  env: { ...process.env, PYTHONPATH: path.join(root, "src", "backend") },
+  encoding: "utf8",
+});
+
+assert.strictEqual(projectRootResult.status, 0, projectRootResult.stderr || projectRootResult.stdout);
+assert(projectRootResult.stdout.includes("Project root env contract passed"));

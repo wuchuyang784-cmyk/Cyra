@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
 from app.schemas.tts import TtsRequest, TtsResponse, TtsTimestamp
-from app.services.tts_service import get_cached_audio, synthesize_speech
+from app.services.tts_service import get_cached_audio, get_cached_audio_media_type, synthesize_speech
 
 router = APIRouter(prefix="/api", tags=["tts"])
 
@@ -34,7 +34,8 @@ async def tts_cached_audio(audio_id: str) -> StreamingResponse:
     audio_bytes = get_cached_audio(audio_id)
     if audio_bytes is None:
         raise HTTPException(status_code=404, detail="TTS audio has expired")
-    return StreamingResponse(iter([audio_bytes]), media_type="audio/mpeg")
+    media_type = get_cached_audio_media_type(audio_id) or "audio/mpeg"
+    return StreamingResponse(iter([audio_bytes]), media_type=media_type)
 
 
 @router.get("/tts/audio")

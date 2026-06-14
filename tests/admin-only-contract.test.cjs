@@ -39,6 +39,12 @@ const adminHtml = read("src/frontend/admin.html");
 assert(!adminHtml.includes("tourist.html"), "admin page should not link to tourist client");
 assert(adminHtml.includes("knowledgeManagementLink"), "admin page should expose a button that opens knowledge management");
 assert(adminHtml.includes("knowledge.html"), "admin page should link to the separate knowledge management page");
+assert(adminHtml.includes("热门问答列表"), "admin dashboard should show the popular Q&A list panel");
+assert(adminHtml.includes("运营趋势"), "admin dashboard should show an operation trend panel");
+assert(adminHtml.includes("trendChart"), "admin dashboard should contain the trend chart container");
+assert(adminHtml.includes("frequentQuestionsPanel"), "popular Q&A panel should be moved to its own lower panel");
+assert(adminHtml.includes("frequentQuestions"), "admin dashboard should contain the frequent question list container");
+assert(!adminHtml.includes("热门景区满意度"), "admin dashboard should replace the old attraction satisfaction panel");
 assert(!adminHtml.includes("knowledgeUploadForm"), "admin dashboard should not embed the knowledge upload form");
 assert(!adminHtml.includes("knowledgeEditorForm"), "admin dashboard should not embed the knowledge editor form");
 
@@ -60,6 +66,7 @@ assert(adminApi.includes("UploadFile"), "knowledge upload endpoint should accept
 assert(adminApi.includes("add_uploaded_knowledge"), "knowledge upload endpoint should add uploaded content into the RAG index");
 assert(adminApi.includes("update_knowledge"), "knowledge update endpoint should update RAG source content");
 assert(adminApi.includes("delete_knowledge"), "knowledge delete endpoint should remove RAG source content");
+assert(adminApi.includes("get_frequent_questions"), "admin overview should include categorized frequent questions");
 
 const resourcePack = read("src/backend/app/services/resource_pack.py");
 assert(resourcePack.includes("add_uploaded_knowledge"), "resource pack should index uploaded knowledge files");
@@ -73,6 +80,20 @@ assert(resourcePack.includes("_uploaded_knowledge_chunks"), "resource pack shoul
 const adminScript = read("src/frontend/scripts/admin.js");
 assert(!adminScript.includes("knowledgeUploadForm"), "admin script should not bind knowledge upload controls");
 assert(!adminScript.includes("/api/admin/knowledge/upload"), "admin script should not call knowledge upload");
+assert(adminScript.includes("DASHBOARD_REFRESH_INTERVAL_MS"), "admin dashboard should periodically refresh realtime question metrics");
+assert(adminScript.includes("renderFrequentQuestions"), "admin script should render categorized frequent questions");
+assert(adminScript.includes("overview.frequent_questions"), "admin script should read frequent questions from overview");
+assert(adminScript.includes("item.question"), "admin script should display popular entries as question text");
+assert(adminScript.includes("renderTrendChart"), "admin script should render the operation trend chart");
+assert(adminScript.includes("平均满意度"), "trend chart should include average satisfaction");
+assert(adminScript.includes("平均停留时长"), "trend chart should include average stay duration");
+assert(adminScript.includes("问答热度"), "trend chart should include question heat as an additional dimension");
+assert(!adminHtml.includes("panel full-width"), "admin dashboard should not make the Q&A panel full width");
+assert(adminScript.includes("report-insights"), "report card should include a filled operational summary area");
+assert(adminScript.includes("本周服务人次"), "report summary should include weekly service volume");
+assert(adminScript.includes("热门咨询"), "report summary should include the hottest question");
+assert(adminScript.includes("路线需求"), "report summary should include route demand");
+assert(adminScript.includes("知识库覆盖"), "report summary should include knowledge coverage");
 
 const knowledgeScript = read("src/frontend/scripts/knowledge.js");
 assert(knowledgeScript.includes("knowledgeUploadForm"), "knowledge script should bind the knowledge upload form");

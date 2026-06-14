@@ -123,14 +123,7 @@ def _embed_texts(texts: list[str], text_type: str) -> list[list[float]]:
         last_error: Exception | None = None
         for attempt in range(EMBEDDING_MAX_ATTEMPTS):
             try:
-                response = TextEmbedding.call(
-                    api_key=settings.dashscope_api_key,
-                    model=settings.dashscope_embedding_model,
-                    input=batch,
-                    dimension=settings.dashscope_embedding_dimension,
-                    output_type="dense",
-                    text_type=text_type,
-                )
+                response = TextEmbedding.call(**_embedding_call_kwargs(batch, text_type))
                 break
             except Exception as error:
                 last_error = error
@@ -145,6 +138,21 @@ def _embed_texts(texts: list[str], text_type: str) -> list[list[float]]:
         items = output.get("embeddings", [])
         embeddings.extend([item["embedding"] for item in sorted(items, key=lambda item: item["text_index"])])
     return embeddings
+
+
+def _embedding_call_kwargs(batch: list[str], text_type: str) -> dict[str, Any]:
+    settings = get_settings()
+    kwargs: dict[str, Any] = {
+        "api_key": settings.dashscope_api_key,
+        "model": settings.dashscope_embedding_model,
+        "input": batch,
+        "text_type": text_type,
+    }
+    if settings.dashscope_embedding_model == "text-embedding-v2":
+        return kwargs
+    kwargs["dimension"] = settings.dashscope_embedding_dimension
+    kwargs["output_type"] = "dense"
+    return kwargs
 
 
 def _chunk_id(chunk: dict[str, str]) -> str:

@@ -1,5 +1,6 @@
 import importlib.util
 import os
+import socket
 import subprocess
 import sys
 import time
@@ -13,8 +14,9 @@ BACKEND_DIR = ROOT / "src" / "backend"
 FRONTEND_DIR = ROOT / "src" / "frontend"
 BACKEND_LOG = ROOT / "backend.runtime.log"
 FRONTEND_LOG = ROOT / "frontend.runtime.log"
-BACKEND_URL = "http://127.0.0.1:8001"
-FRONTEND_URL = "http://127.0.0.1:5173"
+BACKEND_PORT = 8001
+BACKEND_URL = f"http://127.0.0.1:{BACKEND_PORT}"
+FRONTEND_PORT_START = 5173
 VENV_PYTHON = ROOT / ".venv" / "Scripts" / "python.exe"
 
 
@@ -54,13 +56,21 @@ def check_dependencies() -> None:
         )
 
 
-def start_process(name: str, args: list[str], cwd: Path, log_path: Path) -> tuple[subprocess.Popen, object]:
+def start_process(
+    name: str,
+    args: list[str],
+    cwd: Path,
+    log_path: Path,
+    extra_env: dict[str, str] | None = None,
+) -> tuple[subprocess.Popen, object]:
     print(f"[{name}] starting: {' '.join(args)}")
     print(f"[{name}] log: {log_path}")
     log_file = log_path.open("w", encoding="utf-8", errors="replace")
     env = os.environ.copy()
     env["PYTHONUTF8"] = "1"
     env["PYTHONIOENCODING"] = "utf-8"
+    if extra_env:
+        env.update(extra_env)
     process = subprocess.Popen(
         args,
         cwd=str(cwd),
@@ -89,19 +99,67 @@ def wait_for_url(url: str, timeout: int = 20) -> bool:
     return False
 
 
+def is_port_available(port: int) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.settimeout(0.2)
+        return sock.connect_ex(("127.0.0.1", port)) != 0
+
+
+def find_available_port(start: int, attempts: int = 20) -> int:
+    for port in range(start, start + attempts):
+        if is_port_available(port):
+            return port
+    raise RuntimeError(f"No available frontend port found from {start} to {start + attempts - 1}")
+
+
+def ensure_backend_port_available() -> None:
+    if is_port_available(BACKEND_PORT):
+        return
+    if wait_for_url(f"{BACKEND_URL}/api/health", timeout=2):
+        print(f"Backend at {BACKEND_PORT} is already running, reusing it.")
+        return
+    raise RuntimeError(
+        f"Backend port {BACKEND_PORT} is already in use. "
+        "Stop the old Cyra backend first with Ctrl+C in its console, "
+        "or end the python process that is listening on that port, then run this script again."
+    )
+
+
+def ensure_backend_ready() -> str:
+    if is_port_available(BACKEND_PORT):
+        return "runner"
+    if wait_for_url(f"{BACKEND_URL}/api/health", timeout=2):
+        print(f"Backend at {BACKEND_PORT} is already running, reusing it.")
+        return "external"
+    ensure_backend_port_available()
+    return "runner"
+
+
 def main() -> None:
     ensure_project_python()
     check_dependencies()
+    backend_owner = ensure_backend_ready()
 
-    backend, backend_log = start_process(
-        "backend",
-        [sys.executable, "-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", "8001"],
-        BACKEND_DIR,
-        BACKEND_LOG,
-    )
+    frontend_port = find_available_port(FRONTEND_PORT_START)
+    frontend_url = f"http://127.0.0.1:{frontend_port}"
+
+    backend = None
+    backend_log = None
+    if backend_owner == "runner":
+        backend, backend_log = start_process(
+            "backend",
+            [sys.executable, "-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", str(BACKEND_PORT)],
+            BACKEND_DIR,
+            BACKEND_LOG,
+            extra_env={
+                "CORS_ORIGINS": f'["http://localhost:{frontend_port}","{frontend_url}"]',
+            },
+        )
+    else:
+        print(f"Backend at {BACKEND_PORT} is already running, reusing it.")
     frontend, frontend_log = start_process(
         "frontend",
-        [sys.executable, "static_server.py"],
+        [sys.executable, "static_server.py", "--port", str(frontend_port)],
         FRONTEND_DIR,
         FRONTEND_LOG,
     )
@@ -110,12 +168,12 @@ def main() -> None:
     print("Cyra demo is starting.")
     print("Waiting for services...")
     backend_ready = wait_for_url(f"{BACKEND_URL}/api/health", timeout=30)
-    frontend_ready = wait_for_url(f"{FRONTEND_URL}/admin.html", timeout=20)
+    frontend_ready = wait_for_url(f"{frontend_url}/admin.html", timeout=20)
     print("")
     print("Open these URLs after both services are ready:")
-    print(f"Tourist Live2D page: {FRONTEND_URL}/tourist.html")
-    print(f"Admin dashboard:     {FRONTEND_URL}/admin.html")
-    print(f"Knowledge manager:   {FRONTEND_URL}/knowledge.html")
+    print(f"Tourist Live2D page: {frontend_url}/tourist.html")
+    print(f"Admin dashboard:     {frontend_url}/admin.html")
+    print(f"Knowledge manager:   {frontend_url}/knowledge.html")
     print(f"Backend health:      {BACKEND_URL}/api/health")
     print(f"Backend status:      {'ready' if backend_ready else 'not ready, check backend.runtime.log'}")
     print(f"Frontend status:     {'ready' if frontend_ready else 'not ready, check frontend.runtime.log'}")
@@ -124,7 +182,7 @@ def main() -> None:
 
     try:
         while True:
-            if backend.poll() is not None:
+            if backend is not None and backend.poll() is not None:
                 raise RuntimeError(f"Backend exited with code {backend.returncode}\n{read_log_tail(BACKEND_LOG)}")
             if frontend.poll() is not None:
                 raise RuntimeError(f"Frontend exited with code {frontend.returncode}\n{read_log_tail(FRONTEND_LOG)}")
@@ -133,14 +191,19 @@ def main() -> None:
         print("Stopping Cyra admin dashboard...")
     finally:
         for process in (frontend, backend):
+            if process is None:
+                continue
             if process.poll() is None:
                 process.terminate()
         for process in (frontend, backend):
+            if process is None:
+                continue
             try:
                 process.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 process.kill()
-        backend_log.close()
+        if backend_log is not None:
+            backend_log.close()
         frontend_log.close()
 
 

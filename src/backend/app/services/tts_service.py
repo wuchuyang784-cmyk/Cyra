@@ -2,6 +2,7 @@ import json
 import time
 import uuid
 import urllib.error
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 
@@ -22,21 +23,21 @@ class TtsSynthesisResult:
     timestamps: list[TtsTimestampResult]
 
 
-_AUDIO_CACHE: dict[str, tuple[bytes, float]] = {}
+_AUDIO_CACHE: dict[str, tuple[bytes, str, float]] = {}
 _AUDIO_CACHE_TTL_SECONDS = 600
 
 
 def _cleanup_audio_cache() -> None:
     now = time.time()
-    expired = [audio_id for audio_id, (_, expires_at) in _AUDIO_CACHE.items() if expires_at <= now]
+    expired = [audio_id for audio_id, (_, _, expires_at) in _AUDIO_CACHE.items() if expires_at <= now]
     for audio_id in expired:
         _AUDIO_CACHE.pop(audio_id, None)
 
 
-def cache_audio(audio_bytes: bytes) -> str:
+def cache_audio(audio_bytes: bytes, media_type: str = "audio/mpeg") -> str:
     _cleanup_audio_cache()
     audio_id = uuid.uuid4().hex
-    _AUDIO_CACHE[audio_id] = (audio_bytes, time.time() + _AUDIO_CACHE_TTL_SECONDS)
+    _AUDIO_CACHE[audio_id] = (audio_bytes, media_type, time.time() + _AUDIO_CACHE_TTL_SECONDS)
     return audio_id
 
 
@@ -46,6 +47,14 @@ def get_cached_audio(audio_id: str) -> bytes | None:
     if not item:
         return None
     return item[0]
+
+
+def get_cached_audio_media_type(audio_id: str) -> str | None:
+    _cleanup_audio_cache()
+    item = _AUDIO_CACHE.get(audio_id)
+    if not item:
+        return None
+    return item[1]
 
 
 def _sdk_audio_format(format_name: str, sample_rate: int):
@@ -203,7 +212,63 @@ def _synthesize_speech_with_http(text: str) -> TtsSynthesisResult:
     return TtsSynthesisResult(audio_url=audio_url, audio_id=None, timestamps=_normalize_word_timestamps(data))
 
 
+def _gpt_sovits_media_type(format_name: str) -> str:
+    normalized = format_name.strip().lower()
+    if normalized == "mp3":
+        return "audio/mpeg"
+    if normalized == "ogg":
+        return "audio/ogg"
+    if normalized == "aac":
+        return "audio/aac"
+    return "audio/wav"
+
+
+def _synthesize_speech_with_gpt_sovits(text: str) -> TtsSynthesisResult:
+    settings = get_settings()
+    api_url = settings.gpt_sovits_api_url.rstrip("/")
+    if not api_url:
+        raise RuntimeError("GPT_SOVITS_API_URL is not configured")
+    if not settings.gpt_sovits_ref_audio_path or not settings.gpt_sovits_prompt_text:
+        raise RuntimeError("GPT-SoVITS reference audio and prompt text are required")
+
+    payload = {
+        "text": text.strip(),
+        "text_lang": settings.gpt_sovits_text_lang,
+        "ref_audio_path": settings.gpt_sovits_ref_audio_path,
+        "prompt_text": settings.gpt_sovits_prompt_text,
+        "prompt_lang": settings.gpt_sovits_prompt_lang,
+        "media_type": settings.gpt_sovits_media_type,
+        "streaming_mode": False,
+    }
+    headers = {"Content-Type": "application/json"}
+    if settings.gpt_sovits_api_key:
+        headers["Authorization"] = f"Bearer {settings.gpt_sovits_api_key}"
+    request = urllib.request.Request(
+        f"{api_url}/tts",
+        data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+        headers=headers,
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=settings.gpt_sovits_timeout_seconds) as response:
+            audio_bytes = response.read()
+            media_type = response.headers.get_content_type() or _gpt_sovits_media_type(settings.gpt_sovits_media_type)
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"GPT-SoVITS HTTP {exc.code}: {detail[:500]}") from exc
+    except (TimeoutError, urllib.error.URLError) as exc:
+        raise RuntimeError("GPT-SoVITS request failed") from exc
+
+    if not audio_bytes:
+        raise RuntimeError("GPT-SoVITS returned empty audio data")
+    return TtsSynthesisResult(audio_url=None, audio_id=cache_audio(audio_bytes, media_type), timestamps=[])
+
+
 def synthesize_speech(text: str) -> TtsSynthesisResult:
+    settings = get_settings()
+    if settings.tts_provider.strip().lower() == "gpt_sovits":
+        return _synthesize_speech_with_gpt_sovits(text)
     try:
         return _synthesize_speech_with_sdk(text)
     except RuntimeError:

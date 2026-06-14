@@ -2,6 +2,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
 from app.services.resource_pack import get_behavior_overview, get_resource_pack, get_visitor_report
+from app.services.visitor_metrics import get_frequent_questions
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -59,7 +60,9 @@ async def upload_knowledge(file: UploadFile = File(...)) -> dict:
 
 @router.get("/analytics/overview")
 async def analytics_overview() -> dict:
-    return get_behavior_overview()
+    overview = dict(get_behavior_overview())
+    overview["frequent_questions"] = get_frequent_questions()
+    return overview
 
 
 @router.get("/analytics/report")

@@ -112,8 +112,9 @@ body {
 
 .admin-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+  grid-template-columns: minmax(0, 1.5fr) minmax(320px, 0.75fr);
   gap: 14px;
+  align-items: start;
 }
 
 .panel {
@@ -164,6 +165,48 @@ body {
   font-size: 26px;
 }
 
+.report-insights {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.report-insights div {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fbf9;
+}
+
+.report-insights span,
+.report-insights strong,
+.report-insights small {
+  display: block;
+}
+
+.report-insights span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.report-insights strong {
+  margin: 6px 0 3px;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 17px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.report-insights small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
 h3 {
   margin: 16px 0 8px;
 }
@@ -178,6 +221,74 @@ ul {
 .bars {
   display: grid;
   gap: 10px;
+}
+
+#frequentQuestionsPanel {
+  max-height: 260px;
+  overflow: auto;
+}
+
+.trend-chart {
+  display: grid;
+  gap: 14px;
+}
+
+.trend-summary {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.trend-card {
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fbf9;
+}
+
+.trend-card span,
+.trend-card strong {
+  display: block;
+}
+
+.trend-card span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.trend-card strong {
+  margin-top: 6px;
+  font-size: 17px;
+}
+
+.trend-chart svg {
+  width: 100%;
+  min-height: 150px;
+  overflow: visible;
+}
+
+.trend-chart line {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+.trend-chart text {
+  fill: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.empty-state {
+  margin: 0;
+  padding: 16px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
 }
 
 .rank-item {
@@ -228,7 +339,9 @@ ul {
 @media (max-width: 980px) {
   .metrics-grid,
   .admin-layout,
-  .focus-grid {
+  .focus-grid,
+  .report-insights,
+  .trend-summary {
     grid-template-columns: 1fr;
   }
 }

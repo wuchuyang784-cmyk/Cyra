@@ -1,3 +1,4 @@
+import argparse
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 
@@ -16,6 +17,9 @@ class Utf8NoCacheHandler(SimpleHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    server = ThreadingHTTPServer(("127.0.0.1", 5173), Utf8NoCacheHandler)
-    print("Serving frontend on http://127.0.0.1:5173/")
+    parser = argparse.ArgumentParser(description="Serve Cyra frontend assets.")
+    parser.add_argument("--port", type=int, default=5173)
+    args = parser.parse_args()
+    server = ThreadingHTTPServer(("127.0.0.1", args.port), Utf8NoCacheHandler)
+    print(f"Serving frontend on http://127.0.0.1:{args.port}/")
     server.serve_forever()

@@ -1,5 +1,6 @@
 const stage = document.getElementById("live2d-stage");
 const canvas = document.getElementById("live2dCanvas");
+const backgroundImage = document.getElementById("backgroundImage");
 const avatarSelect = document.getElementById("avatarSelect");
 const backgroundUpload = document.getElementById("backgroundUpload");
 const clearBackground = document.getElementById("clearBackground");
@@ -7,10 +8,8 @@ const stageStatus = document.getElementById("stageStatus");
 const chatForm = document.getElementById("chatForm");
 const messageInput = document.getElementById("messageInput");
 const voiceInputButton = document.getElementById("voiceInputButton");
+const imageUpload = document.getElementById("imageUpload");
 const conversation = document.getElementById("conversation");
-const quickQuestions = document.getElementById("quickQuestions");
-const routeActions = document.getElementById("routeActions");
-const feedbackPanel = document.getElementById("feedbackPanel");
 
 let app;
 let activeModel;
@@ -37,15 +36,38 @@ let isVoiceRecording = false;
 let voiceRecordingStartedAt = 0;
 let voiceRecordingTimer;
 let voiceRecordingLimitTimer;
+let pendingImageDataUrl = null;
+let pendingImageName = "";
 
 const FACE_FORWARD_ANGLE_X = 0;
 const FACE_FORWARD_ANGLE_Y = 0;
 const LIP_SYNC_FRAME_RATE = 60;
 const LIP_SYNC_START_DELAY_SECONDS = 0.04;
 const LIP_SYNC_END_GRACE_SECONDS = 0.12;
-const MIN_SPEECH_MOUTH_OPEN = 0.22;
+const MIN_SPEECH_MOUTH_OPEN = 0.34;
+const SPEAKING_HEAD_SWAY_X = 0.8;
+const SPEAKING_HEAD_SWAY_Y = 0.55;
+const SPEAKING_HEAD_SWAY_Z = 0.7;
+const SPEAKING_BODY_SWAY_X = 1.2;
+const SPEAKING_BODY_SWAY_Y = 0.45;
+const GUIDE_GESTURE_CYCLE_SECONDS = 5.4;
+const GUIDE_WAVE_SECONDS = 1.7;
+const GUIDE_PRESENT_START_SECONDS = 2.45;
+const GUIDE_PRESENT_SECONDS = 1.55;
 const VOICE_RECORDING_MAX_SECONDS = 12;
+const CHAT_IMAGE_MAX_EDGE = 1280;
+const CHAT_IMAGE_QUALITY = 0.82;
 const BROWSER_TTS_VOICE_NAME = "Chelsie";
+const VOICE_ICON = "🎙";
+const DEFAULT_MESSAGE_PLACEHOLDER = messageInput.getAttribute("placeholder") || "";
+const VOICE_RECORDING_PLACEHOLDER = "正在录音 {duration}，再次点击话筒结束";
+const COMPOSER_SAFE_AREA_HEIGHT = 220;
+const MODEL_COMPOSER_GAP = 18;
+const SPEECH_HARD_BREAKS = "。！？!?；;";
+const SPEECH_SOFT_BREAKS = "，,、：:";
+const SPEECH_SOFT_BREAK_MIN_CHARS = 16;
+const SPEECH_CHUNK_MIN_CHARS = 40;
+const SPEECH_CHUNK_MAX_CHARS = 58;
 const EMPTY_MOUTH_STATE = Object.freeze({ a: 0, i: 0, u: 0, e: 0, o: 0 });
 
 function setStatus(message, ready = false) {
@@ -65,9 +87,12 @@ function setVoiceInputState(recording, busy = false) {
     voiceRecordingTimer = null;
     voiceRecordingLimitTimer = null;
   }
-  voiceInputButton.textContent = busy ? "识别中" : recording ? "停止 00:00" : "语音";
+  voiceInputButton.textContent = busy ? "..." : VOICE_ICON;
   voiceInputButton.disabled = busy;
   voiceInputButton.classList.toggle("recording", recording);
+  if (!recording) {
+    messageInput.placeholder = DEFAULT_MESSAGE_PLACEHOLDER;
+  }
 }
 
 function formatRecordingDuration(seconds) {
@@ -77,10 +102,14 @@ function formatRecordingDuration(seconds) {
   return `${minutes}:${rest}`;
 }
 
+function formatRecordingPlaceholder(seconds) {
+  return VOICE_RECORDING_PLACEHOLDER.replace("{duration}", formatRecordingDuration(seconds));
+}
+
 function updateVoiceRecordingDuration() {
   if (!isVoiceRecording) return;
   const elapsed = (performance.now() - voiceRecordingStartedAt) / 1000;
-  voiceInputButton.textContent = `停止 ${formatRecordingDuration(elapsed)}`;
+  messageInput.placeholder = formatRecordingPlaceholder(elapsed);
 }
 
 function scheduleVoiceRecordingLimit() {
@@ -118,12 +147,109 @@ function resetMouthParameters() {
   setModelParameter("ParamMouthAngryLine", 0);
 }
 
+function resetGuideGestureParameters() {
+  applyGuideGestureState({});
+}
+
 function resetGuideParameters() {
   resetMouthParameters();
-  setModelParameter("ParamAngleX", FACE_FORWARD_ANGLE_X);
-  setModelParameter("ParamAngleY", FACE_FORWARD_ANGLE_Y);
-  setModelParameter("ParamAngleZ", 0);
-  setModelParameter("ParamBodyAngleX", 0);
+  applyForwardGaze();
+  resetGuideGestureParameters();
+}
+
+function applyForwardGaze({
+  headX = FACE_FORWARD_ANGLE_X,
+  headY = FACE_FORWARD_ANGLE_Y,
+  headZ = 0,
+  bodyX = 0,
+  bodyY = 0,
+  bodyZ = 0,
+  breath = 0,
+} = {}) {
+  setModelParameter("ParamAngleX", headX);
+  setModelParameter("ParamAngleY", headY);
+  setModelParameter("ParamAngleZ", headZ);
+  setModelParameter("ParamEyeBallX", 0);
+  setModelParameter("ParamEyeBallY", 0);
+  setModelParameter("ParamBodyAngleX", bodyX);
+  setModelParameter("ParamBodyAngleY", bodyY);
+  setModelParameter("ParamBodyAngleZ", bodyZ);
+  setModelParameter("ParamBreath", breath);
+}
+
+function applySpeakingMotion(elapsed) {
+  applyForwardGaze({
+    headX: FACE_FORWARD_ANGLE_X + Math.sin(elapsed * 0.85) * SPEAKING_HEAD_SWAY_X,
+    headY: FACE_FORWARD_ANGLE_Y + Math.sin(elapsed * 0.65 + 0.5) * SPEAKING_HEAD_SWAY_Y,
+    headZ: Math.sin(elapsed * 0.72 + 1.2) * SPEAKING_HEAD_SWAY_Z,
+    bodyX: Math.sin(elapsed * 0.5) * SPEAKING_BODY_SWAY_X,
+    bodyY: Math.sin(elapsed * 0.46 + 0.9) * SPEAKING_BODY_SWAY_Y,
+    breath: 0.45 + Math.sin(elapsed * 1.25) * 0.12,
+  });
+  applyGuideGestureState(readGuideGestureState(elapsed));
+}
+
+function gestureEnvelope(progress) {
+  return Math.sin(Math.PI * clamp01(progress));
+}
+
+function readGuideGestureState(elapsed) {
+  const cycle = elapsed % GUIDE_GESTURE_CYCLE_SECONDS;
+  if (cycle < GUIDE_WAVE_SECONDS) {
+    const progress = cycle / GUIDE_WAVE_SECONDS;
+    const envelope = gestureEnvelope(progress);
+    const wave = Math.sin(progress * Math.PI * 6) * envelope;
+    return {
+      rightArm1: 22 * envelope,
+      rightArm2: -28 * envelope + wave * 10,
+      rightArm3: -12 * envelope + wave * 8,
+      rightHand: wave * 24,
+      rightShoulder: 10 * envelope,
+    };
+  }
+
+  const presentProgress = (cycle - GUIDE_PRESENT_START_SECONDS) / GUIDE_PRESENT_SECONDS;
+  if (presentProgress >= 0 && presentProgress <= 1) {
+    const envelope = gestureEnvelope(presentProgress);
+    return {
+      rightArm1: 10 * envelope,
+      rightArm2: -12 * envelope,
+      rightArm3: 8 * envelope,
+      rightHand: 12 * envelope,
+      leftArm1: -14 * envelope,
+      leftArm2: 16 * envelope,
+      leftArm3: -8 * envelope,
+      leftHand: -10 * envelope,
+    };
+  }
+
+  return {};
+}
+
+function applyGuideGestureState(state) {
+  setModelParameter("ParamRightShoulderUp", state.rightShoulder ?? 0);
+  setModelParameter("ParamArmRA01", state.rightArm1 ?? 0);
+  setModelParameter("ParamArmRA02", state.rightArm2 ?? 0);
+  setModelParameter("ParamArmRA03", state.rightArm3 ?? 0);
+  setModelParameter("ParamHandRA", state.rightHand ?? 0);
+  setModelParameter("ParamArmLA01", state.leftArm1 ?? 0);
+  setModelParameter("ParamArmLA02", state.leftArm2 ?? 0);
+  setModelParameter("ParamArmLA03", state.leftArm3 ?? 0);
+  setModelParameter("ParamHandLA", state.leftHand ?? 0);
+}
+
+function disableGuidePointerTracking(model) {
+  if (!model) return;
+  model.interactive = false;
+  model.buttonMode = false;
+  model.eventMode = "none";
+  model.cursor = "default";
+  model.removeAllListeners?.("pointermove");
+  model.removeAllListeners?.("pointerover");
+  model.removeAllListeners?.("pointerout");
+  model.removeAllListeners?.("mousemove");
+  model.removeAllListeners?.("mouseover");
+  model.removeAllListeners?.("mouseout");
 }
 
 function ensureAudioContext() {
@@ -244,7 +370,7 @@ function pickVisemeForText(text) {
   return "a";
 }
 
-function buildTimestampLipSyncClip(ttsTimestamps, audioBuffer) {
+function buildTimestampLipSyncClip(ttsTimestamps, audioBuffer, envelopeClip) {
   const words = (ttsTimestamps ?? [])
     .map((item) => {
       const begin = Number(item.begin_time) / 1000;
@@ -265,6 +391,8 @@ function buildTimestampLipSyncClip(ttsTimestamps, audioBuffer) {
   return {
     duration: audioBuffer.duration,
     words,
+    frameRate: envelopeClip?.frameRate ?? LIP_SYNC_FRAME_RATE,
+    values: envelopeClip?.values ?? null,
     startedAt: 0,
     endsAt: 0,
   };
@@ -291,6 +419,28 @@ function readSpeechMouthPulse(elapsed) {
   const primary = Math.abs(Math.sin(elapsed * 10.5));
   const secondary = Math.abs(Math.sin(elapsed * 16.2 + 0.7));
   return MIN_SPEECH_MOUTH_OPEN + Math.max(primary * 0.48, secondary * 0.28);
+}
+
+function mixMouthWithAudioEnergy(mouthState, audioEnergy, elapsed) {
+  const pulse = readSpeechMouthPulse(elapsed);
+  const visibleEnergy = Math.max(audioEnergy, pulse * 0.72);
+  const state = {
+    a: clamp01(mouthState.a || 0),
+    i: clamp01(mouthState.i || 0),
+    u: clamp01(mouthState.u || 0),
+    e: clamp01(mouthState.e || 0),
+    o: clamp01(mouthState.o || 0),
+  };
+  const strongest = Math.max(state.a, state.i, state.u, state.e, state.o);
+  const target = Math.max(strongest, visibleEnergy);
+  state.a = Math.max(state.a, target * 0.82);
+  if (strongest > 0) {
+    state.i = Math.max(state.i, mouthState.i ? target : 0);
+    state.u = Math.max(state.u, mouthState.u ? target : 0);
+    state.e = Math.max(state.e, mouthState.e ? target : 0);
+    state.o = Math.max(state.o, mouthState.o ? target : 0);
+  }
+  return state;
 }
 
 function normalizeMouthState(mouthState, elapsed) {
@@ -346,21 +496,12 @@ function updateGuidePerformance() {
     : lipSyncFallback
     ? 0.2 + Math.abs(Math.sin(elapsed * 9.5)) * 0.55
     : readLipSyncMouthValue();
-  const mouthState = activeLipSyncClip?.words
-    ? readTimestampLipSyncMouthState()
-    : { ...EMPTY_MOUTH_STATE, a: mouth };
-  const visibleMouthState = normalizeMouthState(mouthState, elapsed);
-  const headX = FACE_FORWARD_ANGLE_X + Math.sin(elapsed * 0.9) * 1.5;
-  const headY = FACE_FORWARD_ANGLE_Y + Math.sin(elapsed * 0.7 + 0.6) * 1.2;
-  const headZ = Math.sin(elapsed * 0.8 + 1.4) * 1.2;
-  const bodyX = Math.sin(elapsed * 0.55) * 1.8;
+  const timestampMouthState = activeLipSyncClip?.words ? readTimestampLipSyncMouthState() : { ...EMPTY_MOUTH_STATE };
+  const visibleMouthState = normalizeMouthState(mixMouthWithAudioEnergy(timestampMouthState, mouth, elapsed), elapsed);
 
   resetMouthParameters();
   applyMouthState(visibleMouthState);
-  setModelParameter("ParamAngleX", headX);
-  setModelParameter("ParamAngleY", headY);
-  setModelParameter("ParamAngleZ", headZ);
-  setModelParameter("ParamBodyAngleX", bodyX);
+  applySpeakingMotion(elapsed);
 }
 
 function startGuidePerformance() {
@@ -394,8 +535,9 @@ function drawFallbackGuide(context, width, height, elapsed) {
   const logicalWidth = width / pixelRatio;
   const logicalHeight = height / pixelRatio;
   const centerX = logicalWidth / 2;
-  const centerY = logicalHeight * 0.52;
-  const scale = Math.min(logicalWidth / 760, logicalHeight / 760, 1.08);
+  const fallbackGuideBottomY = Math.max(logicalHeight - COMPOSER_SAFE_AREA_HEIGHT, logicalHeight * 0.56) - MODEL_COMPOSER_GAP;
+  const scale = Math.min(logicalWidth / 760, fallbackGuideBottomY / 640, 1.02);
+  const centerY = fallbackGuideBottomY - 334 * scale;
   const speaking = guidePerformanceActive || isAudioQueuePlaying;
   const listening = isVoiceRecording;
   const breath = Math.sin(elapsed * 1.8) * 4;
@@ -496,16 +638,23 @@ function autoFitModel(model) {
   const character = characters.find((item) => item.id === avatarSelect.value);
   const stageRect = stage.getBoundingClientRect();
   const bounds = model.getLocalBounds();
+  const availableStageHeight = Math.max(stageRect.height - COMPOSER_SAFE_AREA_HEIGHT, stageRect.height * 0.56);
   const widthRatio = character?.stageWidthRatio ?? 0.58;
   const heightRatio = character?.stageHeightRatio ?? 0.82;
   const maxScale = character?.maxScale ?? 0.16;
   const widthScale = (stageRect.width * widthRatio) / Math.max(bounds.width, 1);
-  const heightScale = (stageRect.height * heightRatio) / Math.max(bounds.height, 1);
+  const heightScale = (availableStageHeight * heightRatio) / Math.max(bounds.height, 1);
   const scale = Math.min(widthScale, heightScale, maxScale);
+  const anchorX = character?.anchorX ?? 0.5;
+  const anchorY = character?.anchorY ?? 0.55;
+  const scaledModelHeight = bounds.height * scale;
+  const scaledModelBottom = (bounds.y + bounds.height) * scale;
+  const composerTop = Math.max(stageRect.height - COMPOSER_SAFE_AREA_HEIGHT, stageRect.height * 0.56);
+  const modelBottomY = composerTop - MODEL_COMPOSER_GAP;
   model.scale.set(scale);
-  model.anchor?.set(character?.anchorX ?? 0.5, character?.anchorY ?? 0.55);
+  model.anchor?.set(anchorX, anchorY);
   model.x = stageRect.width / 2 + (character?.offsetX ?? 0);
-  model.y = stageRect.height / 2 + (character?.offsetY ?? 40);
+  model.y = modelBottomY - scaledModelBottom + (character?.offsetY ?? 0);
 }
 
 async function loadCharacters() {
@@ -544,9 +693,11 @@ async function loadModel(characterId) {
     activeModel = null;
   }
 
-  activeModel = await PIXI.live2d.Live2DModel.from(character.model);
+  activeModel = await PIXI.live2d.Live2DModel.from(character.model, { autoInteract: false });
+  disableGuidePointerTracking(activeModel);
   app.stage.addChild(activeModel);
   autoFitModel(activeModel);
+  resetGuideParameters();
   setStatus(`${character.name} 已就绪`, true);
 }
 
@@ -570,6 +721,8 @@ async function initLive2D() {
     () => {
       if (guidePerformanceActive) {
         updateGuidePerformance();
+      } else {
+        applyForwardGaze();
       }
     },
     undefined,
@@ -589,6 +742,53 @@ function appendMessage(author, text, type = "guide") {
   conversation.appendChild(item);
   conversation.scrollTop = conversation.scrollHeight;
   return item;
+}
+
+function appendImageMessage(file) {
+  const imageUrl = URL.createObjectURL(file);
+  const item = appendMessage("游客", `已上传图片：${file.name}`, "user");
+  const preview = document.createElement("img");
+  preview.className = "image-preview";
+  preview.src = imageUrl;
+  preview.alt = file.name;
+  preview.onload = () => URL.revokeObjectURL(imageUrl);
+  item.appendChild(preview);
+  setStatus("图片已添加，可继续输入问题", true);
+}
+
+function loadImageElement(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("图片读取失败"));
+    image.src = dataUrl;
+  });
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("图片读取失败"));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function prepareChatImageDataUrl(file) {
+  if (!/^image\/(png|jpeg|webp)$/.test(file.type)) {
+    throw new Error("仅支持 PNG、JPG 或 WebP 图片");
+  }
+  const sourceDataUrl = await readFileAsDataUrl(file);
+  const sourceImage = await loadImageElement(sourceDataUrl);
+  const scale = Math.min(1, CHAT_IMAGE_MAX_EDGE / Math.max(sourceImage.naturalWidth, sourceImage.naturalHeight));
+  const width = Math.max(1, Math.round(sourceImage.naturalWidth * scale));
+  const height = Math.max(1, Math.round(sourceImage.naturalHeight * scale));
+  const canvasElement = document.createElement("canvas");
+  canvasElement.width = width;
+  canvasElement.height = height;
+  const context = canvasElement.getContext("2d");
+  context.drawImage(sourceImage, 0, 0, width, height);
+  return canvasElement.toDataURL("image/jpeg", CHAT_IMAGE_QUALITY);
 }
 
 function stopGuideSpeech() {
@@ -652,9 +852,14 @@ async function prepareGuideAudio(text) {
   if (!data.audio_src) {
     throw new Error("语音合成没有返回音频");
   }
+  const audioUrl = `http://127.0.0.1:8001${data.audio_src}`;
+  const ttsTimestamps = data.timestamps ?? [];
+  const decodedAudio = await prepareDecodedGuideAudio(audioUrl, ttsTimestamps);
   return {
-    audioUrl: `http://127.0.0.1:8001${data.audio_src}`,
-    ttsTimestamps: data.timestamps ?? [],
+    audioUrl,
+    ttsTimestamps,
+    audioBuffer: decodedAudio?.audioBuffer ?? null,
+    lipSyncClip: decodedAudio?.lipSyncClip ?? null,
   };
 }
 
@@ -662,7 +867,7 @@ async function playBrowserSpeechFallback(text) {
   const cleanText = text.replace(/\s+/g, " ").trim();
   if (!cleanText) return;
   if (!canUseBrowserSpeechFallback()) {
-    throw new Error("璇煶鎾姤鏆備笉鍙敤");
+    throw new Error("语音播报暂不可用");
   }
 
   await new Promise((resolve, reject) => {
@@ -675,7 +880,7 @@ async function playBrowserSpeechFallback(text) {
     lipSyncFallback = true;
     utterance.onstart = () => {
       browserSpeechActive = true;
-      setStatus("鏁板瓧浜烘鍦ㄨ闊虫挱鎶?..", true);
+      setStatus("数字人正在语音播报...", true);
       startGuidePerformance();
     };
     utterance.onend = () => {
@@ -696,8 +901,11 @@ async function playBrowserSpeechFallback(text) {
 async function playAudioUrl(audioUrl, ttsTimestamps = []) {
   const context = ensureAudioContext();
   if (context) {
-    await playDecodedAudioBuffer(audioUrl, context, ttsTimestamps);
-    return;
+    const decodedAudio = await prepareDecodedGuideAudio(audioUrl, ttsTimestamps);
+    if (decodedAudio) {
+      await playPreparedAudioBuffer(decodedAudio.audioBuffer, context, decodedAudio.lipSyncClip);
+      return;
+    }
   }
 
   await new Promise((resolve, reject) => {
@@ -727,12 +935,37 @@ async function playAudioUrl(audioUrl, ttsTimestamps = []) {
   stopGuidePerformance();
 }
 
-async function playDecodedAudioBuffer(audioUrl, context, ttsTimestamps = []) {
+async function decodeGuideAudioUrl(audioUrl, context) {
   const response = await fetch(audioUrl);
   if (!response.ok) {
     throw new Error("语音音频加载失败");
   }
-  const audioBuffer = await context.decodeAudioData(await response.arrayBuffer());
+  return context.decodeAudioData(await response.arrayBuffer());
+}
+
+async function prepareDecodedGuideAudio(audioUrl, ttsTimestamps = []) {
+  const context = ensureAudioContext();
+  if (!context) return null;
+  try {
+    const audioBuffer = await decodeGuideAudioUrl(audioUrl, context);
+    const envelopeClip = buildLipSyncEnvelope(audioBuffer);
+    return {
+      audioBuffer,
+      lipSyncClip: buildTimestampLipSyncClip(ttsTimestamps, audioBuffer, envelopeClip) ?? envelopeClip,
+    };
+  } catch (error) {
+    return null;
+  }
+}
+
+async function playDecodedAudioBuffer(audioUrl, context, ttsTimestamps = []) {
+  const audioBuffer = await decodeGuideAudioUrl(audioUrl, context);
+  const envelopeClip = buildLipSyncEnvelope(audioBuffer);
+  const lipSyncClip = buildTimestampLipSyncClip(ttsTimestamps, audioBuffer, envelopeClip) ?? envelopeClip;
+  await playPreparedAudioBuffer(audioBuffer, context, lipSyncClip);
+}
+
+async function playPreparedAudioBuffer(audioBuffer, context, lipSyncClip) {
   const source = context.createBufferSource();
   const analyser = setupLipSyncAnalyser();
   if (!analyser) {
@@ -741,7 +974,7 @@ async function playDecodedAudioBuffer(audioUrl, context, ttsTimestamps = []) {
   source.buffer = audioBuffer;
   source.connect(analyser);
   activeAudioSource = source;
-  activeLipSyncClip = buildTimestampLipSyncClip(ttsTimestamps, audioBuffer) ?? buildLipSyncEnvelope(audioBuffer);
+  activeLipSyncClip = lipSyncClip ?? buildLipSyncEnvelope(audioBuffer);
   await context.resume?.();
   const startedAt = context.currentTime + LIP_SYNC_START_DELAY_SECONDS;
   activeLipSyncClip.startedAt = startedAt;
@@ -768,7 +1001,10 @@ async function playPreparedAudioQueue() {
     while (preparedAudioQueue.length > 0) {
       const item = preparedAudioQueue[0];
       const preparedAudio = await item.audioPromise;
-      if (preparedAudio?.audioUrl) {
+      const context = preparedAudio?.audioBuffer ? ensureAudioContext() : null;
+      if (preparedAudio?.audioBuffer && context) {
+        await playPreparedAudioBuffer(preparedAudio.audioBuffer, context, preparedAudio.lipSyncClip);
+      } else if (preparedAudio?.audioUrl) {
         await playAudioUrl(preparedAudio.audioUrl, preparedAudio.ttsTimestamps);
       } else if (preparedAudio?.speechFallback) {
         await playBrowserSpeechFallback(item.text);
@@ -890,13 +1126,36 @@ function stopVoiceRecording() {
   }
 }
 
-function extractCompletedSentences(buffer) {
+function findLengthFallbackEnd(segment) {
+  if (segment.length <= SPEECH_CHUNK_MAX_CHARS) return -1;
+  const windowEnd = Math.min(segment.length, SPEECH_CHUNK_MAX_CHARS);
+  const naturalBreaks = " ，,、：:；;。！？!?";
+  for (let index = windowEnd - 1; index >= SPEECH_CHUNK_MIN_CHARS; index -= 1) {
+    if (naturalBreaks.includes(segment[index])) {
+      return index + 1;
+    }
+  }
+  return windowEnd;
+}
+
+function extractSpeakableSegments(buffer) {
   const sentences = [];
   let lastEnd = -1;
   for (let index = 0; index < buffer.length; index += 1) {
-    if ("。！？!?；;".includes(buffer[index])) {
-      sentences.push(buffer.slice(lastEnd + 1, index + 1).trim());
+    const segment = buffer.slice(lastEnd + 1, index + 1);
+    const isHardBreak = SPEECH_HARD_BREAKS.includes(buffer[index]);
+    const isUsefulSoftBreak =
+      SPEECH_SOFT_BREAKS.includes(buffer[index]) && segment.trim().length >= SPEECH_SOFT_BREAK_MIN_CHARS;
+    const fallbackEnd = findLengthFallbackEnd(buffer.slice(lastEnd + 1));
+
+    if (isHardBreak || isUsefulSoftBreak) {
+      sentences.push(segment.trim());
       lastEnd = index;
+    } else if (fallbackEnd !== -1) {
+      const end = lastEnd + fallbackEnd;
+      sentences.push(buffer.slice(lastEnd + 1, end + 1).trim());
+      lastEnd = end;
+      index = end;
     }
   }
   return {
@@ -905,9 +1164,24 @@ function extractCompletedSentences(buffer) {
   };
 }
 
+function extractCompletedSentences(buffer) {
+  return extractSpeakableSegments(buffer);
+}
+
 async function answerQuestion(question) {
   stopGuideSpeech();
-  appendMessage("游客", question, "user");
+  const imageDataUrl = pendingImageDataUrl;
+  const imageName = pendingImageName;
+  pendingImageDataUrl = null;
+  pendingImageName = "";
+  const userItem = appendMessage("游客", imageName ? `${question}\n已附图片：${imageName}` : question, "user");
+  if (imageDataUrl) {
+    const preview = document.createElement("img");
+    preview.className = "image-preview";
+    preview.src = imageDataUrl;
+    preview.alt = imageName || "上传图片";
+    userItem.appendChild(preview);
+  }
   const replyItem = appendMessage("数字人导游", "正在思考...", "guide");
   const replyText = replyItem.querySelector("p");
   resetGuideParameters();
@@ -920,6 +1194,7 @@ async function answerQuestion(question) {
       body: JSON.stringify({
         message: question,
         history: chatHistory.slice(-8),
+        image_data_url: imageDataUrl,
       }),
     });
 
@@ -939,7 +1214,7 @@ async function answerQuestion(question) {
       fullReply += chunk;
       speechBuffer += chunk;
       replyText.textContent = fullReply;
-      const completed = extractCompletedSentences(speechBuffer);
+      const completed = extractSpeakableSegments(speechBuffer);
       completed.sentences.forEach(queueGuideSpeech);
       speechBuffer = completed.rest;
       conversation.scrollTop = conversation.scrollHeight;
@@ -968,14 +1243,16 @@ backgroundUpload.addEventListener("change", () => {
   const [file] = backgroundUpload.files ?? [];
   if (!file) return;
   const imageUrl = URL.createObjectURL(file);
-  stage.style.backgroundImage = `url("${imageUrl}")`;
+  backgroundImage.src = imageUrl;
   stage.classList.add("has-custom-background");
+  setStatus("背景已更新", true);
 });
 
 clearBackground.addEventListener("click", () => {
-  stage.style.backgroundImage = "";
+  backgroundImage.removeAttribute("src");
   stage.classList.remove("has-custom-background");
   backgroundUpload.value = "";
+  setStatus("已恢复默认背景", true);
 });
 
 chatForm.addEventListener("submit", (event) => {
@@ -994,22 +1271,20 @@ voiceInputButton.addEventListener("click", () => {
   startVoiceRecording();
 });
 
-quickQuestions.addEventListener("click", (event) => {
-  const button = event.target.closest("button[data-question]");
-  if (!button) return;
-  answerQuestion(button.dataset.question);
-});
-
-routeActions.addEventListener("click", (event) => {
-  const button = event.target.closest("button[data-question]");
-  if (!button) return;
-  answerQuestion(button.dataset.question);
-});
-
-feedbackPanel.addEventListener("click", (event) => {
-  const button = event.target.closest("button[data-feedback]");
-  if (!button) return;
-  appendMessage("系统", `已记录反馈：${button.dataset.feedback}`, "guide");
+imageUpload.addEventListener("change", async () => {
+  const [file] = imageUpload.files ?? [];
+  if (!file) return;
+  try {
+    pendingImageDataUrl = await prepareChatImageDataUrl(file);
+    pendingImageName = file.name;
+    appendImageMessage(file);
+  } catch (error) {
+    pendingImageDataUrl = null;
+    pendingImageName = "";
+    setStatus(error.message || "图片暂时无法读取", false);
+  } finally {
+    imageUpload.value = "";
+  }
 });
 
 initLive2D().catch((error) => {

@@ -1,24 +1,33 @@
 :root {
   color-scheme: light;
-  --ink: #1f2528;
-  --muted: #667275;
-  --line: #dce5e2;
-  --panel: #ffffff;
-  --soft: #f5f8f7;
+  --ink: #1e2a2f;
+  --muted: #5e6f75;
+  --line: rgba(229, 238, 236, 0.72);
+  --panel: rgba(255, 255, 255, 0.82);
+  --panel-strong: rgba(255, 255, 255, 0.94);
   --accent: #0f766e;
   --accent-strong: #0b5f59;
-  --gold: #a16207;
+  --lotus: #c2415a;
+  --gold: #b7791f;
+  --shadow: rgba(15, 39, 45, 0.18);
 }
 
 * {
   box-sizing: border-box;
 }
 
+html,
 body {
   margin: 0;
+  width: 100%;
+  min-height: 100%;
+}
+
+body {
   min-height: 100vh;
+  overflow: hidden;
   overflow-x: hidden;
-  background: #ffffff;
+  background: #dcefed;
   color: var(--ink);
   font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
 }
@@ -31,32 +40,42 @@ select {
 
 button,
 select,
-.upload-button {
-  min-height: 38px;
+.upload-button,
+.icon-upload-button {
+  min-height: 40px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fff;
+  background: var(--panel-strong);
   color: var(--ink);
 }
 
 button,
-.upload-button {
+.upload-button,
+.icon-upload-button {
   cursor: pointer;
 }
 
 .tourist-shell {
   min-height: 100vh;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) clamp(360px, 32vw, 520px);
-  gap: 0;
+}
+
+.immersive-stage,
+.live2d-stage {
+  position: relative;
+  width: 100vw;
+  min-height: 100vh;
+  overflow: hidden;
 }
 
 .live2d-stage {
-  position: relative;
-  min-height: 100vh;
-  overflow: hidden;
-  background: #ffffff;
-  border-right: 1px solid var(--line);
+  display: grid;
+  place-items: center;
+  isolation: isolate;
+  background:
+    linear-gradient(180deg, rgba(210, 235, 240, 0.95), rgba(230, 245, 235, 0.88) 40%, rgba(205, 228, 218, 0.96)),
+    url('https://neeko-copilot.bytedance.net/api/text_to_image?prompt=Chinese%20traditional%20temple%20mountain%20scenery%20with%20golden%20pagoda%20and%20lush%20green%20trees%20peaceful%20atmosphere&image_size=landscape_16_9');
+  background-position: center;
+  background-size: cover;
 }
 
 .live2d-stage.has-custom-background {
@@ -64,25 +83,88 @@ button,
   background-size: cover;
 }
 
-#live2dCanvas {
+.scenic-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 50% 102%, rgba(60, 112, 93, 0.28) 0 22%, transparent 48%),
+    linear-gradient(180deg, transparent 0 55%, rgba(255, 255, 255, 0.2) 56% 100%);
+}
+
+.background-image {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
   width: 100%;
   height: 100%;
+  object-fit: cover;
+  object-position: center;
+  opacity: 0;
+  transition: opacity 180ms ease;
+  pointer-events: none;
+}
+
+.live2d-stage.has-custom-background .background-image {
+  opacity: 1;
+}
+
+.live2d-stage.has-custom-background {
+  background: #111827;
+}
+
+.live2d-stage.has-custom-background .scenic-backdrop {
+  background:
+    linear-gradient(180deg, rgba(8, 24, 28, 0.18), rgba(8, 24, 28, 0.02) 42%, rgba(8, 24, 28, 0.22)),
+    radial-gradient(ellipse at 50% 98%, rgba(255, 255, 255, 0.34) 0 18%, transparent 46%);
+}
+
+.scenic-backdrop::before,
+.scenic-backdrop::after {
+  content: "";
+  position: absolute;
+  right: -8vw;
+  bottom: 12vh;
+  width: 62vw;
+  height: 24vh;
+  clip-path: polygon(0 100%, 18% 44%, 28% 66%, 42% 26%, 57% 70%, 70% 38%, 100% 100%);
+  background: rgba(71, 108, 99, 0.18);
+}
+
+.scenic-backdrop::after {
+  right: auto;
+  left: -12vw;
+  bottom: 7vh;
+  width: 56vw;
+  height: 20vh;
+  background: rgba(183, 121, 31, 0.12);
+}
+
+#live2dCanvas {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  min-height: 100vh;
   display: block;
 }
 
 .stage-toolbar {
-  position: absolute;
-  top: 18px;
+  position: fixed;
+  top: max(16px, env(safe-area-inset-top));
   left: 18px;
-  z-index: 3;
+  z-index: 10;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px;
+  gap: 8px;
+  max-width: calc(100vw - 36px);
+  padding: 8px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 12px 28px rgba(32, 58, 54, 0.1);
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 14px 34px var(--shadow);
+  backdrop-filter: blur(18px);
 }
 
 .field {
@@ -95,19 +177,21 @@ button,
 }
 
 .field select {
-  width: 160px;
+  width: 150px;
   padding: 0 10px;
 }
 
-.upload-button {
+.upload-button,
+.icon-upload-button {
   display: inline-grid;
   place-items: center;
   padding: 0 12px;
   color: var(--accent);
-  font-weight: 800;
+  font-weight: 900;
 }
 
-.upload-button input {
+.upload-button input,
+.icon-upload-button input {
   position: absolute;
   inline-size: 1px;
   block-size: 1px;
@@ -118,82 +202,67 @@ button,
 #clearBackground {
   padding: 0 12px;
   color: var(--accent);
-  font-weight: 800;
+  font-weight: 900;
 }
 
-.stage-status {
-  position: absolute;
-  left: 18px;
-  bottom: 18px;
-  z-index: 3;
-  max-width: min(460px, calc(100% - 36px));
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.92);
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 700;
-  box-shadow: 0 12px 28px rgba(32, 58, 54, 0.1);
+.hero-title {
+  position: fixed;
+  top: max(18px, env(safe-area-inset-top));
+  right: 22px;
+  z-index: 8;
+  max-width: min(360px, 42vw);
+  text-align: right;
+  color: #143033;
+  text-shadow: 0 2px 14px rgba(255, 255, 255, 0.72);
 }
 
-.stage-status.ready {
-  color: var(--accent);
-}
-
-.guide-panel {
-  min-width: 0;
-  overflow: hidden;
-  height: 100vh;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto auto auto auto;
-  gap: 14px;
-  padding: 22px;
-  background: #f7faf9;
-}
-
-.guide-header p,
-.section-head p,
-.feedback-panel p {
-  margin: 0 0 6px;
-  color: var(--accent);
+.hero-title p {
+  margin: 0 0 4px;
+  color: var(--accent-strong);
   font-size: 13px;
   font-weight: 900;
 }
 
-.guide-header h1 {
+.hero-title h1 {
   margin: 0;
-  font-size: 28px;
+  font-size: clamp(24px, 3vw, 42px);
   letter-spacing: 0;
 }
 
 .conversation {
-  min-height: 0;
+  position: fixed;
+  right: 22px;
+  bottom: 140px;
+  z-index: 9;
+  width: min(430px, calc(100vw - 44px));
+  max-height: min(38vh, 340px);
   overflow: auto;
   display: grid;
-  align-content: start;
+  align-content: end;
   gap: 10px;
-  padding: 2px 2px 8px;
+  padding: 2px;
+  pointer-events: auto;
 }
 
 .message {
-  width: min(100%, 520px);
-  padding: 12px 14px;
+  width: min(100%, 430px);
+  padding: 11px 13px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: var(--panel);
-  box-shadow: 0 10px 24px rgba(32, 58, 54, 0.06);
+  background: rgba(255, 255, 255, 0.84);
+  box-shadow: 0 12px 30px rgba(16, 45, 43, 0.12);
+  backdrop-filter: blur(18px);
 }
 
 .message.user {
   justify-self: end;
-  border-color: rgba(15, 118, 110, 0.24);
-  background: #eef8f6;
+  border-color: rgba(15, 118, 110, 0.3);
+  background: rgba(235, 249, 246, 0.9);
 }
 
 .message strong {
   display: block;
-  margin-bottom: 6px;
+  margin-bottom: 5px;
   color: var(--accent-strong);
   font-size: 13px;
 }
@@ -201,84 +270,107 @@ button,
 .message p {
   margin: 0;
   color: var(--ink);
-  line-height: 1.65;
+  line-height: 1.6;
 }
 
-.chat-form {
+.message .image-preview {
+  display: block;
+  width: min(240px, 100%);
+  max-height: 170px;
+  margin-top: 8px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 1px solid rgba(15, 118, 110, 0.18);
+}
+
+.tourist-composer {
+  position: fixed;
+  right: 22px;
+  bottom: max(18px, env(safe-area-inset-bottom));
+  left: 22px;
+  z-index: 12;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(92px, auto) minmax(72px, auto);
-  gap: 8px;
-}
-
-.chat-form input {
-  min-width: 0;
-  height: 42px;
-  padding: 0 12px;
+  grid-template-columns: 46px 46px minmax(0, 1fr) 84px;
+  gap: 10px;
+  align-items: center;
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 18px 46px rgba(14, 38, 44, 0.18);
+  backdrop-filter: blur(20px);
 }
 
-.chat-form button,
-.quick-actions button,
-.feedback-actions button {
+.tourist-composer input[type="text"] {
+  min-width: 0;
+  height: 46px;
+  padding: 0 14px;
+  border: 1px solid rgba(15, 118, 110, 0.22);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.icon-upload-button,
+.tourist-composer button {
+  height: 46px;
+  min-height: 46px;
+  border-radius: 999px;
+  border-color: rgba(15, 118, 110, 0.22);
+}
+
+.icon-upload-button {
+  padding: 0;
+  color: var(--accent-strong);
+  font-size: 26px;
+  line-height: 1;
+}
+
+.tourist-composer .voice-input-button {
+  display: inline-grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--accent-strong);
+  overflow: hidden;
+  white-space: nowrap;
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.tourist-composer .voice-input-button.recording {
+  border-color: #b91c1c;
+  background: #b91c1c;
+  color: #fff;
+}
+
+.send-button {
   border-color: var(--accent);
   background: var(--accent);
   color: #fff;
   font-weight: 900;
 }
 
-.chat-form .voice-input-button {
-  border-color: var(--accent);
-  background: #fff;
-  color: var(--accent);
-  white-space: nowrap;
-}
-
-.chat-form .voice-input-button.recording {
-  border-color: #b91c1c;
-  background: #b91c1c;
-  color: #fff;
-}
-
-.action-section,
-.feedback-panel {
-  padding: 14px;
+.stage-status {
+  position: fixed;
+  left: 50%;
+  bottom: 108px;
+  z-index: 11;
+  max-width: min(460px, calc(100vw - 44px));
+  transform: translateX(-50%);
+  padding: 8px 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: var(--panel);
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+  box-shadow: 0 12px 28px rgba(32, 58, 54, 0.12);
+  backdrop-filter: blur(16px);
 }
 
-.quick-actions,
-.feedback-actions {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
-  gap: 8px;
-}
-
-.quick-actions button,
-.feedback-actions button {
-  min-width: 0;
-  padding: 0 10px;
-}
-
-.route-actions {
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-}
-
-.feedback-panel {
-  display: grid;
-  gap: 12px;
-}
-
-.feedback-panel strong {
-  display: block;
-  font-size: 16px;
-}
-
-.feedback-actions button {
-  background: #fff;
-  color: var(--accent);
+.stage-status.ready {
+  color: var(--accent-strong);
 }
 
 .sr-only {
@@ -290,45 +382,75 @@ button,
   white-space: nowrap;
 }
 
-@media (max-width: 980px) {
-  .tourist-shell {
-    grid-template-columns: 1fr;
+@media (max-width: 960px) {
+  .hero-title {
+    display: none;
   }
 
-  .live2d-stage {
-    min-height: 56vh;
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
-  }
-
-  .guide-panel {
-    height: auto;
-    min-height: 44vh;
+  .conversation {
+    max-height: 34vh;
   }
 }
 
-@media (max-width: 620px) {
+@media (max-width: 720px) {
+  body {
+    overflow: hidden;
+  }
+
   .stage-toolbar {
     right: 12px;
     left: 12px;
-    flex-wrap: wrap;
+    justify-content: space-between;
+  }
+
+  .field span {
+    display: none;
   }
 
   .field select {
-    width: 140px;
+    width: 138px;
   }
 
-  .guide-panel {
-    padding: 16px;
+  .conversation {
+    right: 12px;
+    bottom: 150px;
+    left: 12px;
+    width: auto;
+    max-height: 32vh;
   }
 
-  .guide-header h1 {
-    font-size: 23px;
+  .tourist-composer {
+    right: 12px;
+    left: 12px;
+    grid-template-columns: 44px 44px minmax(0, 1fr) 66px;
+    gap: 7px;
+    padding: 8px;
   }
 
-  .quick-actions,
-  .route-actions,
-  .feedback-actions {
-    grid-template-columns: 1fr;
+  .tourist-composer input[type="text"] {
+    height: 44px;
+    padding: 0 10px;
+  }
+
+  .icon-upload-button,
+  .tourist-composer button {
+    height: 44px;
+    min-height: 44px;
+  }
+
+  .stage-status {
+    bottom: 104px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .tourist-composer {
+    grid-template-columns: 40px 40px minmax(0, 1fr) 56px;
+  }
+
+  .tourist-composer .voice-input-button,
+  .send-button {
+    font-size: 13px;
   }
 }
