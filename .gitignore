@@ -7,9 +7,17 @@ __pycache__/
 .venv/
 node_modules/
 project/
+output/
+docs/
+*.pptx
+*.pdf
+*.docx
+*.xlsx
 src/backend/chroma_db/
-src/frontend/assets/live2d/
-示范景区公开资料包/uploaded_knowledge/
+src/backend/app_data/
+src/frontend/assets/live2d/custom/
+src/frontend/assets/live2d/*.zip
+示范景区公开资料包/
 
 .idea/
 src/.idea/

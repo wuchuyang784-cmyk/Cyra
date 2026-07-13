@@ -4,7 +4,7 @@ import urllib.request
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
-from app.schemas.tts import TtsRequest, TtsResponse, TtsTimestamp
+from app.schemas.tts import ArkitExpressionClip, ArkitExpressionFrame, TtsRequest, TtsResponse, TtsTimestamp
 from app.services.tts_service import get_cached_audio, get_cached_audio_media_type, synthesize_speech
 
 router = APIRouter(prefix="/api", tags=["tts"])
@@ -26,7 +26,23 @@ async def tts(request: TtsRequest) -> TtsResponse:
         TtsTimestamp(text=item.text, begin_time=item.begin_time, end_time=item.end_time)
         for item in result.timestamps
     ]
-    return TtsResponse(audio_url=result.audio_url, audio_src=audio_src, timestamps=timestamps)
+    arkit_expressions = None
+    if result.arkit_expressions:
+        arkit_expressions = ArkitExpressionClip(
+            frame_rate=result.arkit_expressions.frame_rate,
+            channels=result.arkit_expressions.channels,
+            frames=[
+                ArkitExpressionFrame(time_ms=frame.time_ms, values=frame.values)
+                for frame in result.arkit_expressions.frames
+            ],
+        )
+    return TtsResponse(
+        audio_url=result.audio_url,
+        audio_src=audio_src,
+        timestamps=timestamps,
+        arkit_expressions=arkit_expressions,
+        provider=result.provider,
+    )
 
 
 @router.get("/tts/audio/{audio_id}")

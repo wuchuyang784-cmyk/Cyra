@@ -8,6 +8,13 @@ class Utf8NoCacheHandler(SimpleHTTPRequestHandler):
         ".html": "text/html; charset=utf-8",
         ".js": "text/javascript; charset=utf-8",
         ".css": "text/css; charset=utf-8",
+        ".json": "application/json; charset=utf-8",
+        ".moc3": "application/octet-stream",
+        ".model3.json": "application/json; charset=utf-8",
+        ".physics3.json": "application/json; charset=utf-8",
+        ".pose3.json": "application/json; charset=utf-8",
+        ".exp3.json": "application/json; charset=utf-8",
+        ".motion3.json": "application/json; charset=utf-8",
     }
 
     def end_headers(self) -> None:

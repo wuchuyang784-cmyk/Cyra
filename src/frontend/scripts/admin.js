@@ -8,10 +8,15 @@ const elements = {
   frequentQuestionsPanel: document.querySelector("#frequentQuestionsPanel"),
   profileBox: document.querySelector("#profileBox"),
   refreshButton: document.querySelector("#refreshButton"),
+  commentStatusFilter: document.querySelector("#commentStatusFilter"),
+  commentModerationList: document.querySelector("#commentModerationList"),
 };
 
-elements.refreshButton.addEventListener("click", loadDashboard);
+elements.refreshButton.addEventListener("click", () => Promise.all([loadDashboard(), loadComments()]));
+elements.commentStatusFilter.addEventListener("change", loadComments);
+elements.commentModerationList.addEventListener("click", handleCommentAction);
 loadDashboard();
+loadComments();
 window.setInterval(loadDashboard, DASHBOARD_REFRESH_INTERVAL_MS);
 
 async function loadDashboard() {
@@ -32,6 +37,73 @@ async function getJson(path) {
     throw new Error(await response.text());
   }
   return response.json();
+}
+
+async function loadComments() {
+  const status = elements.commentStatusFilter.value;
+  const data = await getJson(`/api/admin/comments${status ? `?status=${encodeURIComponent(status)}` : ""}`);
+  renderComments(data.items || []);
+}
+
+function renderComments(items) {
+  if (!items.length) {
+    elements.commentModerationList.innerHTML = `<p class="empty-state">当前筛选条件下没有评论</p>`;
+    return;
+  }
+  elements.commentModerationList.innerHTML = items.map((item) => `
+    <article class="comment-review-card">
+      ${item.image_url ? `<img src="${API_BASE}${item.image_url}" alt="游客上传的景点照片" loading="lazy" />` : `<div class="comment-no-photo">无图片</div>`}
+      <div class="comment-review-body">
+        <div class="comment-review-meta">
+          <strong>${escapeHtml(spotName(item.spot_id))}</strong>
+          <span class="status-${item.status}">${statusName(item.status)}</span>
+        </div>
+        <p>${escapeHtml(item.content)}</p>
+        <small>${new Date(item.created_at).toLocaleString("zh-CN")}</small>
+        <div class="comment-review-actions">
+          <button data-comment-action="approved" data-comment-id="${item.id}">通过</button>
+          <button data-comment-action="rejected" data-comment-id="${item.id}" class="secondary">拒绝</button>
+          ${item.image_url && item.status === "approved" && !item.in_gallery ? `<button data-comment-action="gallery" data-comment-id="${item.id}" class="gallery">加入景点图库</button>` : ""}
+          ${item.in_gallery ? `<span class="gallery-mark">已入库</span>` : ""}
+          <button data-comment-action="delete" data-comment-id="${item.id}" class="danger">删除</button>
+        </div>
+      </div>
+    </article>
+  `).join("");
+}
+
+async function handleCommentAction(event) {
+  const button = event.target.closest("button[data-comment-action]");
+  if (!button) return;
+  button.disabled = true;
+  const action = button.dataset.commentAction;
+  const id = button.dataset.commentId;
+  const response = action === "delete"
+    ? await fetch(`${API_BASE}/api/admin/comments/${id}`, { method: "DELETE" })
+    : action === "gallery"
+      ? await fetch(`${API_BASE}/api/admin/comments/${id}/gallery`, { method: "POST" })
+      : await fetch(`${API_BASE}/api/admin/comments/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: action }),
+      });
+  if (!response.ok) {
+    button.disabled = false;
+    throw new Error(await response.text());
+  }
+  await loadComments();
+}
+
+function spotName(id) {
+  return ({ "lingshan-buddha": "灵山大佛", jiulong: "九龙灌浴", fangong: "梵宫", wuyin: "五印坛城" })[id] || id;
+}
+
+function statusName(status) {
+  return ({ pending: "待审核", approved: "已通过", rejected: "已拒绝" })[status] || status;
+}
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char]);
 }
 
 function renderMetrics(overview) {

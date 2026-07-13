@@ -10,6 +10,8 @@
   --lotus: #c2415a;
   --gold: #b7791f;
   --shadow: rgba(15, 39, 45, 0.18);
+  --conversation-top: max(96px, calc(env(safe-area-inset-top) + 84px));
+  --composer-reserved-height: max(132px, calc(env(safe-area-inset-bottom) + 126px));
 }
 
 * {
@@ -33,14 +35,11 @@ body {
 }
 
 button,
-input,
-select {
+input {
   font: inherit;
 }
 
 button,
-select,
-.upload-button,
 .icon-upload-button {
   min-height: 40px;
   border: 1px solid var(--line);
@@ -50,7 +49,6 @@ select,
 }
 
 button,
-.upload-button,
 .icon-upload-button {
   cursor: pointer;
 }
@@ -150,38 +148,6 @@ button,
   display: block;
 }
 
-.stage-toolbar {
-  position: fixed;
-  top: max(16px, env(safe-area-inset-top));
-  left: 18px;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  max-width: calc(100vw - 36px);
-  padding: 8px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.72);
-  box-shadow: 0 14px 34px var(--shadow);
-  backdrop-filter: blur(18px);
-}
-
-.field {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 800;
-}
-
-.field select {
-  width: 150px;
-  padding: 0 10px;
-}
-
-.upload-button,
 .icon-upload-button {
   display: inline-grid;
   place-items: center;
@@ -190,7 +156,6 @@ button,
   font-weight: 900;
 }
 
-.upload-button input,
 .icon-upload-button input {
   position: absolute;
   inline-size: 1px;
@@ -199,18 +164,12 @@ button,
   pointer-events: none;
 }
 
-#clearBackground {
-  padding: 0 12px;
-  color: var(--accent);
-  font-weight: 900;
-}
-
 .hero-title {
   position: fixed;
   top: max(18px, env(safe-area-inset-top));
   right: 22px;
   z-index: 8;
-  max-width: min(360px, 42vw);
+  max-width: min(540px, 52vw);
   text-align: right;
   color: #143033;
   text-shadow: 0 2px 14px rgba(255, 255, 255, 0.72);
@@ -229,23 +188,299 @@ button,
   letter-spacing: 0;
 }
 
-.conversation {
+.tourist-comment-panel {
   position: fixed;
-  right: 22px;
-  bottom: 140px;
-  z-index: 9;
-  width: min(430px, calc(100vw - 44px));
-  max-height: min(38vh, 340px);
-  overflow: auto;
+  left: 22px;
+  top: max(22px, env(safe-area-inset-top));
+  bottom: var(--composer-reserved-height);
+  z-index: 7;
+  width: min(500px, 87vw);
   display: grid;
-  align-content: end;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 10px;
-  padding: 2px;
+  padding: 12px;
+  border: 1px solid rgba(229, 238, 236, 0.52);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.58);
+  box-shadow: 0 16px 38px rgba(16, 45, 43, 0.12);
+  backdrop-filter: blur(16px);
   pointer-events: auto;
 }
 
+.hero-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.spot-card,
+.spot-comments,
+.spot-comment-form {
+  border: 1px solid rgba(229, 238, 236, 0.72);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 10px 24px rgba(16, 45, 43, 0.08);
+}
+
+.spot-card {
+  padding: 12px;
+}
+
+.spot-panel-header,
+.spot-comments-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.spot-kicker {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.spot-card h2,
+.spot-comments h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 18px;
+  letter-spacing: 0;
+}
+
+.spot-selector {
+  max-width: 138px;
+  min-height: 36px;
+  padding: 0 28px 0 10px;
+  border: 1px solid rgba(15, 118, 110, 0.22);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--accent-strong);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.spot-image-frame {
+  position: relative;
+  height: 164px;
+  margin: 12px 0 10px;
+  overflow: hidden;
+  border: 1px solid rgba(15, 118, 110, 0.2);
+  border-radius: 8px;
+  background: rgba(15, 118, 110, 0.08);
+  box-shadow: 0 8px 22px rgba(16, 45, 43, 0.13);
+}
+
+.spot-image-frame img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  transition: transform 260ms ease;
+}
+
+.spot-image-frame:hover img {
+  transform: scale(1.025);
+}
+
+.spot-image-caption {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(11, 37, 36, 0.72);
+  color: rgba(255, 255, 255, 0.94);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  backdrop-filter: blur(8px);
+}
+
+.spot-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.spot-comments {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  padding: 12px;
+}
+
+.spot-comments-header {
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.spot-comments-header span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.spot-comment-list {
+  min-height: 0;
+  overflow-y: auto;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding-right: 2px;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(15, 118, 110, 0.42) rgba(255, 255, 255, 0.28);
+}
+
+.spot-comment {
+  padding: 9px 10px;
+  border: 1px solid rgba(15, 118, 110, 0.12);
+  border-radius: 8px;
+  background: rgba(248, 253, 251, 0.92);
+}
+
+.spot-comment strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--accent-strong);
+  font-size: 12px;
+}
+
+.spot-comment p {
+  margin: 0;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.spot-comment-photo {
+  display: block;
+  width: 100%;
+  max-height: 180px;
+  margin-top: 8px;
+  border-radius: 7px;
+  object-fit: cover;
+}
+
+.spot-empty-comments {
+  margin: auto;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.spot-comment-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 64px;
+  gap: 8px;
+  padding: 10px;
+}
+
+.spot-comment-photo-button {
+  min-height: 38px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0 10px;
+  border: 1px dashed rgba(15, 118, 110, 0.34);
+  border-radius: 8px;
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.spot-comment-photo-button input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.spot-comment-form input {
+  min-width: 0;
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid rgba(15, 118, 110, 0.2);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.spot-comment-form button {
+  min-height: 38px;
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.conversation {
+  position: fixed;
+  right: 22px;
+  top: var(--conversation-top);
+  bottom: var(--composer-reserved-height);
+  z-index: 9;
+  width: min(520px, 32vw);
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  display: grid;
+  align-content: start;
+  grid-auto-rows: max-content;
+  gap: 10px;
+  padding: 2px 4px 2px 2px;
+  pointer-events: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(15, 118, 110, 0.45) rgba(255, 255, 255, 0.3);
+}
+
+.conversation::-webkit-scrollbar {
+  width: 7px;
+}
+
+.conversation::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+}
+
+.conversation::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(15, 118, 110, 0.45);
+}
+
+.clear-conversation-button {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 0 14px;
+  border: 1px solid #0b6b63;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #11998e, #0f766e);
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 8px 22px rgba(15, 118, 110, 0.3);
+  transition: transform 160ms ease, box-shadow 160ms ease, filter 160ms ease;
+}
+
+.clear-conversation-button:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+  box-shadow: 0 10px 26px rgba(15, 118, 110, 0.4);
+}
+
+.clear-conversation-button:active {
+  transform: translateY(0);
+  box-shadow: 0 5px 14px rgba(15, 118, 110, 0.28);
+}
+
 .message {
-  width: min(100%, 430px);
+  width: min(100%, 520px);
   padding: 11px 13px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -285,16 +520,17 @@ button,
 
 .tourist-composer {
   position: fixed;
-  right: 22px;
+  right: 50%;
   bottom: max(18px, env(safe-area-inset-bottom));
-  left: 22px;
+  left: auto;
   z-index: 12;
   display: grid;
   grid-template-columns: 46px 46px minmax(0, 1fr) 84px;
   gap: 10px;
   align-items: center;
-  max-width: 980px;
-  margin: 0 auto;
+  width: min(720px, calc(100vw - 44px));
+  max-width: 720px;
+  transform: translateX(50%);
   padding: 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -388,8 +624,43 @@ button,
   }
 
   .conversation {
-    max-height: 34vh;
+    --conversation-top: max(88px, calc(env(safe-area-inset-top) + 78px));
   }
+
+  .tourist-comment-panel {
+    width: min(460px, 42vw);
+  }
+}
+
+.scenic-reference-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.scenic-reference {
+  position: relative;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid rgba(15, 118, 110, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.scenic-reference img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+}
+
+.scenic-reference figcaption {
+  padding: 6px 8px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
 }
 
 @media (max-width: 720px) {
@@ -397,31 +668,24 @@ button,
     overflow: hidden;
   }
 
-  .stage-toolbar {
-    right: 12px;
-    left: 12px;
-    justify-content: space-between;
-  }
-
-  .field span {
-    display: none;
-  }
-
-  .field select {
-    width: 138px;
-  }
-
   .conversation {
     right: 12px;
-    bottom: 150px;
     left: 12px;
     width: auto;
-    max-height: 32vh;
+    --conversation-top: max(86px, calc(env(safe-area-inset-top) + 78px));
+    --composer-reserved-height: max(130px, calc(env(safe-area-inset-bottom) + 124px));
+  }
+
+  .tourist-comment-panel {
+    display: none;
   }
 
   .tourist-composer {
     right: 12px;
     left: 12px;
+    width: auto;
+    max-width: none;
+    transform: none;
     grid-template-columns: 44px 44px minmax(0, 1fr) 66px;
     gap: 7px;
     padding: 8px;

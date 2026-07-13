@@ -112,10 +112,14 @@ QUERY_STOPWORDS = (
 def _build_rag_context(message: str) -> str:
     query = _interest_expanded_query(message)
     keyword_context = ""
+    _keyword_sources = []
     try:
         keyword_context, _keyword_sources = get_resource_pack().context_for(query, limit=RAG_CONTEXT_LIMIT)
     except Exception:
         keyword_context = ""
+
+    if not _keyword_sources:
+        return ""
 
     if keyword_context.strip() and (
         _has_direct_query_match(query, keyword_context) or _has_direct_title_match(message, keyword_context)

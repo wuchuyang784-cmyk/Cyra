@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>形象管理 · Cyra</title>
+    <link rel="stylesheet" href="./styles/avatar.css" />
+  </head>
+  <body>
+    <main class="avatar-shell">
+      <header class="avatar-header">
+        <div>
+          <p>数字人运营工作台</p>
+          <h1>Live2D 形象管理</h1>
+        </div>
+        <nav class="avatar-nav" aria-label="形象管理导航">
+          <a href="./admin.html">返回管理后台</a>
+          <a href="./knowledge.html">知识库管理</a>
+        </nav>
+      </header>
+
+      <section id="activeAvatarSummary" class="active-avatar" aria-live="polite"></section>
+
+      <section class="avatar-workbench">
+        <aside class="avatar-aside">
+          <form id="avatarUploadForm" class="avatar-upload">
+            <label>
+              <span>上传 Live2D 运行时包</span>
+              <input id="avatarFileInput" type="file" accept=".zip,application/zip" />
+            </label>
+            <button type="submit">上传入库</button>
+            <p id="avatarUploadStatus" role="status"></p>
+          </form>
+
+          <section class="avatar-guide">
+            <p>上传规则</p>
+            <strong>.zip · 包内包含 .model3.json</strong>
+            <span>上传后只加入形象库，需要手动启用后才会影响游客端。</span>
+          </section>
+        </aside>
+
+        <section class="avatar-browser">
+          <div class="avatar-tools">
+            <div>
+              <p>形象库</p>
+              <h2>选择一个形象进行管理</h2>
+            </div>
+            <button id="avatarRefreshButton" type="button">刷新</button>
+          </div>
+          <div id="avatarList" class="avatar-list"></div>
+        </section>
+
+        <form id="avatarEditorForm" class="avatar-editor">
+          <input id="avatarIdInput" type="hidden" />
+          <div class="editor-head">
+            <div>
+              <p>显示参数</p>
+              <h2 id="avatarEditorTitle">选中形象后编辑</h2>
+            </div>
+          </div>
+
+          <label>
+            <span>名称</span>
+            <input id="avatarNameInput" type="text" maxlength="80" />
+          </label>
+
+          <label>
+            <span>角色说明</span>
+            <input id="avatarRoleInput" type="text" maxlength="160" />
+          </label>
+
+          <div class="avatar-number-grid">
+            <label>
+              <span>最大缩放</span>
+              <input id="avatarMaxScaleInput" type="number" min="0.02" max="1" step="0.001" />
+            </label>
+            <label>
+              <span>舞台宽度占比</span>
+              <input id="avatarStageWidthInput" type="number" min="0.1" max="1" step="0.01" />
+            </label>
+            <label>
+              <span>舞台高度占比</span>
+              <input id="avatarStageHeightInput" type="number" min="0.1" max="1" step="0.01" />
+            </label>
+            <label>
+              <span>锚点 X</span>
+              <input id="avatarAnchorXInput" type="number" min="0" max="1" step="0.01" />
+            </label>
+            <label>
+              <span>锚点 Y</span>
+              <input id="avatarAnchorYInput" type="number" min="0" max="1" step="0.01" />
+            </label>
+            <label>
+              <span>横向偏移</span>
+              <input id="avatarOffsetXInput" type="number" min="-2000" max="2000" step="1" />
+            </label>
+            <label>
+              <span>纵向偏移</span>
+              <input id="avatarOffsetYInput" type="number" min="-2000" max="2000" step="1" />
+            </label>
+          </div>
+
+          <div class="avatar-editor-actions">
+            <button type="submit">保存参数</button>
+            <button id="avatarActivateButton" type="button">启用形象</button>
+            <button id="avatarDeleteButton" type="button">删除形象</button>
+          </div>
+          <p id="avatarEditorStatus" role="status"></p>
+        </form>
+      </section>
+    </main>
+
+    <script type="module" src="./scripts/avatar.js"></script>
+  </body>
+</html>

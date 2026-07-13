@@ -1,12 +1,20 @@
+import base64
 import json
 import time
 import uuid
 import urllib.error
 import urllib.parse
 import urllib.request
+import wave
 from dataclasses import dataclass
+from io import BytesIO
 
 from app.core.config import get_settings
+from app.services.arkit_expression_service import (
+    ArkitExpressionClipResult,
+    generate_arkit_expression_clip,
+    generate_lam_expression_clip,
+)
 
 
 @dataclass(frozen=True)
@@ -21,6 +29,8 @@ class TtsSynthesisResult:
     audio_url: str | None
     audio_id: str | None
     timestamps: list[TtsTimestampResult]
+    arkit_expressions: ArkitExpressionClipResult | None = None
+    provider: str = "dashscope"
 
 
 _AUDIO_CACHE: dict[str, tuple[bytes, str, float]] = {}
@@ -55,6 +65,37 @@ def get_cached_audio_media_type(audio_id: str) -> str | None:
     if not item:
         return None
     return item[1]
+
+
+def fetch_remote_audio(audio_url: str) -> tuple[bytes, str]:
+    try:
+        with urllib.request.urlopen(audio_url, timeout=30) as response:
+            audio_bytes = response.read()
+            media_type = response.headers.get_content_type() or "audio/mpeg"
+    except (TimeoutError, urllib.error.URLError) as exc:
+        raise RuntimeError("TTS audio download failed") from exc
+    if not audio_bytes:
+        raise RuntimeError("TTS audio download returned empty audio")
+    return audio_bytes, media_type
+
+
+def _result_with_cached_audio(
+    audio_bytes: bytes,
+    media_type: str,
+    timestamps: list[TtsTimestampResult] | None = None,
+    provider: str = "dashscope",
+) -> TtsSynthesisResult:
+    try:
+        arkit_expressions = generate_lam_expression_clip(audio_bytes, media_type)
+    except RuntimeError:
+        arkit_expressions = generate_arkit_expression_clip(audio_bytes, media_type)
+    return TtsSynthesisResult(
+        audio_url=None,
+        audio_id=cache_audio(audio_bytes, media_type),
+        timestamps=timestamps or [],
+        arkit_expressions=arkit_expressions,
+        provider=provider,
+    )
 
 
 def _sdk_audio_format(format_name: str, sample_rate: int):
@@ -116,6 +157,132 @@ def _normalize_word_timestamps(data: dict) -> list[TtsTimestampResult]:
     return timestamps
 
 
+def _visible_tts_units(text: str) -> list[str]:
+    return [char for char in text.strip() if not char.isspace()]
+
+
+def _estimate_audio_duration_ms(audio_bytes: bytes, media_type: str, text: str) -> int:
+    if "wav" in media_type.lower():
+        try:
+            with wave.open(BytesIO(audio_bytes), "rb") as audio_file:
+                frame_rate = audio_file.getframerate()
+                frame_count = audio_file.getnframes()
+            if frame_rate > 0 and frame_count > 0:
+                return max(1, round(frame_count / frame_rate * 1000))
+        except (wave.Error, EOFError):
+            pass
+
+    units = _visible_tts_units(text)
+    return max(700, min(30000, len(units) * 210))
+
+
+def _estimate_timestamps_from_audio(text: str, audio_bytes: bytes, media_type: str) -> list[TtsTimestampResult]:
+    units = _visible_tts_units(text)
+    if not units:
+        return []
+
+    duration_ms = _estimate_audio_duration_ms(audio_bytes, media_type, text)
+    unit_duration = duration_ms / len(units)
+    timestamps: list[TtsTimestampResult] = []
+    for index, unit in enumerate(units):
+        begin_time = round(index * unit_duration)
+        end_time = round((index + 1) * unit_duration)
+        if index == len(units) - 1:
+            end_time = duration_ms
+        if end_time <= begin_time:
+            end_time = begin_time + 1
+        timestamps.append(TtsTimestampResult(text=unit, begin_time=begin_time, end_time=end_time))
+    return timestamps
+
+
+def _is_qwen_tts_model(model_name: str) -> bool:
+    normalized = model_name.strip().lower()
+    return normalized == "qwen-tts" or normalized.startswith("qwen3-tts")
+
+
+def _qwen_tts_media_type(format_name: str) -> str:
+    normalized = format_name.strip().lower()
+    if normalized == "wav":
+        return "audio/wav"
+    if normalized == "pcm":
+        return "audio/pcm"
+    if normalized == "opus" or normalized == "ogg":
+        return "audio/ogg"
+    return "audio/mpeg"
+
+
+_QWEN_TTS_SUPPORTED_VOICES = {"Cherry", "Serena", "Ethan", "Chelsie"}
+
+
+def _validate_qwen_tts_voice(voice_name: str) -> None:
+    if voice_name not in _QWEN_TTS_SUPPORTED_VOICES:
+        supported = ", ".join(sorted(_QWEN_TTS_SUPPORTED_VOICES))
+        raise RuntimeError(f"Qwen TTS voice '{voice_name}' is not supported. Supported voices: {supported}")
+
+
+def _decode_qwen_tts_audio_data(audio_data: str) -> bytes:
+    try:
+        return base64.b64decode(audio_data)
+    except (ValueError, TypeError) as exc:
+        raise RuntimeError("Qwen TTS returned invalid audio data") from exc
+
+
+def _qwen_tts_audio_field(audio: object, field_name: str) -> str | None:
+    if isinstance(audio, dict):
+        value = audio.get(field_name)
+    else:
+        value = getattr(audio, field_name, None)
+    if value in (None, ""):
+        return None
+    return str(value)
+
+
+def _synthesize_speech_with_qwen_tts(text: str) -> TtsSynthesisResult:
+    try:
+        import dashscope
+        from dashscope.audio.qwen_tts import SpeechSynthesizer as QwenSpeechSynthesizer
+    except ImportError as exc:
+        raise RuntimeError("DashScope Qwen TTS SDK is not installed") from exc
+
+    settings = get_settings()
+    if not settings.dashscope_api_key:
+        raise RuntimeError("DASHSCOPE_API_KEY is not configured")
+
+    _validate_qwen_tts_voice(settings.dashscope_tts_voice)
+    dashscope.api_key = settings.dashscope_api_key
+    response = QwenSpeechSynthesizer.call(
+        model=settings.dashscope_tts_model,
+        text=text.strip(),
+        voice=settings.dashscope_tts_voice,
+    )
+    if response.status_code != 200:
+        raise RuntimeError(f"Qwen TTS error: {response.code} {response.message}".strip())
+
+    audio = getattr(response.output, "audio", None)
+    if not audio:
+        raise RuntimeError("Qwen TTS returned no audio output")
+
+    audio_data = _qwen_tts_audio_field(audio, "data")
+    if audio_data:
+        media_type = _qwen_tts_media_type(settings.dashscope_tts_format)
+        audio_bytes = _decode_qwen_tts_audio_data(audio_data)
+        return _result_with_cached_audio(
+            audio_bytes,
+            media_type,
+            timestamps=_estimate_timestamps_from_audio(text, audio_bytes, media_type),
+        )
+
+    audio_url = _qwen_tts_audio_field(audio, "url")
+    if audio_url:
+        audio_bytes, media_type = fetch_remote_audio(audio_url)
+        return _result_with_cached_audio(
+            audio_bytes,
+            media_type,
+            timestamps=_estimate_timestamps_from_audio(text, audio_bytes, media_type),
+        )
+    raise RuntimeError("Qwen TTS returned neither audio data nor audio url")
+
+
 def _synthesize_speech_with_sdk(text: str) -> TtsSynthesisResult:
     try:
         import dashscope
@@ -169,7 +336,7 @@ def _synthesize_speech_with_sdk(text: str) -> TtsSynthesisResult:
         raise RuntimeError(f"SpeechSynthesizer SDK error: {callback.error_message[:500]}")
     if not audio_bytes:
         raise RuntimeError("SpeechSynthesizer returned empty audio data")
-    return TtsSynthesisResult(audio_url=None, audio_id=cache_audio(audio_bytes), timestamps=callback.timestamps)
+    return _result_with_cached_audio(audio_bytes, "audio/mpeg", timestamps=callback.timestamps)
 
 
 def _synthesize_speech_with_http(text: str) -> TtsSynthesisResult:
@@ -209,7 +376,8 @@ def _synthesize_speech_with_http(text: str) -> TtsSynthesisResult:
 
     if not audio_url:
         raise RuntimeError("SpeechSynthesizer returned an empty audio URL")
-    return TtsSynthesisResult(audio_url=audio_url, audio_id=None, timestamps=_normalize_word_timestamps(data))
+    audio_bytes, media_type = fetch_remote_audio(audio_url)
+    return _result_with_cached_audio(audio_bytes, media_type, timestamps=_normalize_word_timestamps(data))
 
 
 def _gpt_sovits_media_type(format_name: str) -> str:
@@ -262,14 +430,29 @@ def _synthesize_speech_with_gpt_sovits(text: str) -> TtsSynthesisResult:
 
     if not audio_bytes:
         raise RuntimeError("GPT-SoVITS returned empty audio data")
-    return TtsSynthesisResult(audio_url=None, audio_id=cache_audio(audio_bytes, media_type), timestamps=[])
+    return _result_with_cached_audio(
+        audio_bytes,
+        media_type,
+        timestamps=_estimate_timestamps_from_audio(text, audio_bytes, media_type),
+        provider="gpt_sovits",
+    )
+
+
+def _synthesize_speech_with_dashscope(text: str) -> TtsSynthesisResult:
+    settings = get_settings()
+    if _is_qwen_tts_model(settings.dashscope_tts_model):
+        return _synthesize_speech_with_qwen_tts(text)
+    try:
+        return _synthesize_speech_with_sdk(text)
+    except RuntimeError:
+        return _synthesize_speech_with_http(text)
 
 
 def synthesize_speech(text: str) -> TtsSynthesisResult:
     settings = get_settings()
     if settings.tts_provider.strip().lower() == "gpt_sovits":
-        return _synthesize_speech_with_gpt_sovits(text)
-    try:
-        return _synthesize_speech_with_sdk(text)
-    except RuntimeError:
-        return _synthesize_speech_with_http(text)
+        try:
+            return _synthesize_speech_with_gpt_sovits(text)
+        except RuntimeError:
+            return _synthesize_speech_with_dashscope(text)
+    return _synthesize_speech_with_dashscope(text)

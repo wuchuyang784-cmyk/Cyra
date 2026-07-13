@@ -12,24 +12,51 @@
         <img class="background-image" id="backgroundImage" alt="" aria-hidden="true" />
         <div class="scenic-backdrop" aria-hidden="true"></div>
 
-        <div class="stage-toolbar" aria-label="数字人和背景设置">
-          <label class="field">
-            <span>数字人</span>
-            <select id="avatarSelect" aria-label="切换数字人形象"></select>
-          </label>
-          <label class="upload-button" title="上传本地背景图">
-            <input id="backgroundUpload" type="file" accept="image/png,image/jpeg,image/webp" />
-            <span>上传背景</span>
-          </label>
-          <button id="clearBackground" type="button" title="恢复默认背景">默认</button>
-        </div>
-
         <header class="hero-title" aria-label="导览主题">
           <p>灵山胜境</p>
-          <h1>AI 数字人导游</h1>
+          <div class="hero-title-row">
+            <button class="clear-conversation-button" id="clearConversationButton" type="button">清空对话</button>
+            <h1>AI 数字人导游</h1>
+          </div>
         </header>
 
         <canvas id="live2dCanvas" aria-label="Live2D 数字人画布"></canvas>
+
+        <aside class="tourist-comment-panel" id="commentPanel" aria-label="游客景点评论区">
+          <section class="spot-card" aria-label="当前景点简介">
+            <div class="spot-panel-header">
+              <div>
+                <span class="spot-kicker">景点评论</span>
+                <h2 id="spotTitle">灵山大佛</h2>
+              </div>
+              <label class="sr-only" for="spotSelector">切换景点</label>
+              <select class="spot-selector" id="spotSelector" aria-label="切换评论景点"></select>
+            </div>
+            <div class="spot-image-frame">
+              <img id="spotImage" src="./assets/scenic-spots/lingshan-buddha.png" alt="灵山大佛景点参考插画" />
+              <span class="spot-image-caption">景点参考插画</span>
+            </div>
+            <p id="spotDescription">灵山大佛是灵山胜境的核心景观，适合礼佛祈福、远眺湖山与拍摄主轴线景观。</p>
+          </section>
+
+          <section class="spot-comments" aria-label="游客评论列表">
+            <div class="spot-comments-header">
+              <h3>游客评论</h3>
+              <span id="spotCommentCount">0 条</span>
+            </div>
+            <div class="spot-comment-list" id="spotCommentList" aria-live="polite"></div>
+          </section>
+
+          <form class="spot-comment-form" id="spotCommentForm">
+            <label class="sr-only" for="spotCommentInput">发表景点评论</label>
+            <input id="spotCommentInput" type="text" maxlength="80" placeholder="写下你的游览感受..." autocomplete="off" />
+            <label class="spot-comment-photo-button" for="spotCommentImage">
+              <input id="spotCommentImage" type="file" accept="image/png,image/jpeg,image/webp" />
+              <span>＋ 附上游客实拍</span>
+            </label>
+            <button type="submit">发布</button>
+          </form>
+        </aside>
 
         <section class="conversation" id="conversation" aria-label="对话区">
           <div class="message guide">

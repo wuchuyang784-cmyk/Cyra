@@ -1,4 +1,5 @@
 import importlib.util
+import json
 import os
 import socket
 import subprocess
@@ -17,18 +18,33 @@ FRONTEND_LOG = ROOT / "frontend.runtime.log"
 BACKEND_PORT = 8001
 BACKEND_URL = f"http://127.0.0.1:{BACKEND_PORT}"
 FRONTEND_PORT_START = 5173
+FRONTEND_PORT_ATTEMPTS = 20
 VENV_PYTHON = ROOT / ".venv" / "Scripts" / "python.exe"
 
 
 def ensure_project_python() -> None:
     if not VENV_PYTHON.exists():
-        return
+        raise RuntimeError(
+            "Project virtual environment was not found. "
+            "Run 安装环境.bat first, then run 启动Cyra.bat."
+        )
     try:
         running_project_python = Path(sys.executable).resolve().samefile(VENV_PYTHON.resolve())
     except OSError:
         running_project_python = False
     if running_project_python:
         return
+    probe = subprocess.run(
+        [str(VENV_PYTHON), "-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if probe.returncode != 0 or probe.stdout.strip() != "3.12":
+        raise RuntimeError(
+            "Project .venv is damaged or is not Python 3.12. "
+            "Run 安装环境.bat to rebuild it."
+        )
     os.execv(str(VENV_PYTHON), [str(VENV_PYTHON), *sys.argv])
 
 
@@ -81,6 +97,17 @@ def start_process(
     return process, log_file
 
 
+def open_in_default_browser(url: str) -> None:
+    if os.name == "nt":
+        subprocess.Popen(
+            ["cmd.exe", "/d", "/c", "start", "", url],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        return
+    print(f"Open manually: {url}")
+
+
 def read_log_tail(log_path: Path) -> str:
     if not log_path.exists():
         return ""
@@ -105,11 +132,19 @@ def is_port_available(port: int) -> bool:
         return sock.connect_ex(("127.0.0.1", port)) != 0
 
 
-def find_available_port(start: int, attempts: int = 20) -> int:
+def find_available_port(start: int, attempts: int = FRONTEND_PORT_ATTEMPTS) -> int:
     for port in range(start, start + attempts):
         if is_port_available(port):
             return port
     raise RuntimeError(f"No available frontend port found from {start} to {start + attempts - 1}")
+
+
+def build_cors_origins() -> list[str]:
+    origins: list[str] = []
+    for port in range(FRONTEND_PORT_START, FRONTEND_PORT_START + FRONTEND_PORT_ATTEMPTS):
+        origins.append(f"http://localhost:{port}")
+        origins.append(f"http://127.0.0.1:{port}")
+    return origins
 
 
 def ensure_backend_port_available() -> None:
@@ -152,7 +187,7 @@ def main() -> None:
             BACKEND_DIR,
             BACKEND_LOG,
             extra_env={
-                "CORS_ORIGINS": f'["http://localhost:{frontend_port}","{frontend_url}"]',
+                "CORS_ORIGINS": json.dumps(build_cors_origins()),
             },
         )
     else:
@@ -179,6 +214,10 @@ def main() -> None:
     print(f"Frontend status:     {'ready' if frontend_ready else 'not ready, check frontend.runtime.log'}")
     print("Press Ctrl+C in this console to stop both services.")
     print("")
+
+    if frontend_ready:
+        open_in_default_browser(f"{frontend_url}/tourist.html")
+        open_in_default_browser(f"{frontend_url}/admin.html")
 
     try:
         while True:
