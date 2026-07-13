@@ -6,6 +6,8 @@ import shutil
 import tempfile
 from typing import Any
 
+from opencc import OpenCC
+
 from app.core.config import get_settings
 
 
@@ -15,6 +17,13 @@ class AsrResult:
     language: str | None
     duration: float | None
     model: str
+
+
+_TRADITIONAL_TO_SIMPLIFIED = OpenCC("t2s")
+
+
+def _to_simplified_chinese(text: str) -> str:
+    return _TRADITIONAL_TO_SIMPLIFIED.convert(text)
 
 
 def _uses_cuda(device: str) -> bool:
@@ -77,7 +86,7 @@ def transcribe_audio(audio_path: str | Path) -> AsrResult:
     except Exception as exc:
         raise RuntimeError("Whisper transcription failed") from exc
 
-    text = str(result.get("text", "")).strip()
+    text = _to_simplified_chinese(str(result.get("text", "")).strip())
     language = result.get("language")
     return AsrResult(
         text=text,

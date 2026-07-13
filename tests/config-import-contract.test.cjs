@@ -12,8 +12,8 @@ default_voice = Settings.model_fields["dashscope_tts_voice"].default
 assert default_voice == "longyingmu", default_voice
 embedding_model = Settings.model_fields["dashscope_embedding_model"].default
 embedding_dimension = Settings.model_fields["dashscope_embedding_dimension"].default
-assert embedding_model == "text-embedding-v2", embedding_model
-assert embedding_dimension == 1536, embedding_dimension
+assert embedding_model == "text-embedding-v4", embedding_model
+assert embedding_dimension == 1024, embedding_dimension
 print("Config import contract passed")
 `;
 
@@ -30,7 +30,8 @@ const projectRootScript = `
 from app.core.config import get_settings
 
 settings = get_settings()
-assert settings.dashscope_tts_voice == "longyingmu", settings.dashscope_tts_voice
+assert settings.dashscope_embedding_model == "text-embedding-v4", settings.dashscope_embedding_model
+assert settings.dashscope_embedding_dimension == 1024, settings.dashscope_embedding_dimension
 assert settings.dashscope_api_key, "src/backend/.env should be loaded from project root"
 print("Project root env contract passed")
 `;

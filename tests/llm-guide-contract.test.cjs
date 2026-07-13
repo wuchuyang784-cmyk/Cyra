@@ -16,7 +16,7 @@ assert(exists("src/backend/app/services/tts_service.py"), "TTS service should ex
 assert(exists("src/backend/app/services/prompt.py"), "guide persona prompt should exist");
 
 const main = read("src/backend/app/main.py");
-assert(main.includes("from app.api import admin, chat, tts"), "backend should import chat and TTS routers");
+assert(main.includes("chat, tts") || main.includes("tts, chat"), "backend should import chat and TTS routers");
 assert(main.includes("app.include_router(chat.router)"), "backend should expose chat router");
 assert(main.includes("app.include_router(tts.router)"), "backend should expose TTS router");
 
@@ -25,8 +25,8 @@ assert(config.includes("dashscope_api_key"), "settings should expose DashScope A
 assert(config.includes("dashscope_model"), "settings should expose DashScope model from env");
 assert(config.includes('dashscope_model: str = "qwen3.7-plus"'), "chat model should default to qwen3.7-plus for text and vision");
 assert(config.includes("dashscope_embedding_model"), "settings should expose DashScope embedding model from env");
-assert(config.includes('dashscope_embedding_model: str = "text-embedding-v2"'), "settings should default to text-embedding-v2");
-assert(config.includes("dashscope_embedding_dimension: int = 1536"), "text-embedding-v2 should use 1536 dimensions");
+assert(config.includes('dashscope_embedding_model: str = "text-embedding-v4"'), "settings should default to text-embedding-v4");
+assert(config.includes("dashscope_embedding_dimension: int = 1024"), "text-embedding-v4 should use 1024 dimensions");
 assert(config.includes("chroma_persist_dir"), "settings should expose ChromaDB persistence path from env");
 assert(config.includes("dashscope_tts_model"), "settings should expose DashScope TTS model from env");
 assert(config.includes("dashscope_tts_voice"), "settings should expose DashScope TTS voice from env");
@@ -36,8 +36,8 @@ assert(!config.includes("sk-"), "settings should not hardcode API keys");
 const envExample = read("src/backend/.env.example");
 assert(envExample.includes("DASHSCOPE_API_KEY="), ".env.example should document DASHSCOPE_API_KEY");
 assert(envExample.includes("DASHSCOPE_MODEL=qwen3.7-plus"), ".env.example should document qwen3.7-plus for text and vision chat");
-assert(envExample.includes("DASHSCOPE_EMBEDDING_MODEL=text-embedding-v2"), ".env.example should document text-embedding-v2 embeddings");
-assert(envExample.includes("DASHSCOPE_EMBEDDING_DIMENSION=1536"), ".env.example should document text-embedding-v2 dimensions");
+assert(envExample.includes("DASHSCOPE_EMBEDDING_MODEL=text-embedding-v4"), ".env.example should document text-embedding-v4 embeddings");
+assert(envExample.includes("DASHSCOPE_EMBEDDING_DIMENSION=1024"), ".env.example should document text-embedding-v4 dimensions");
 assert(envExample.includes("CHROMA_PERSIST_DIR="), ".env.example should document ChromaDB persistence path");
 assert(envExample.includes("DASHSCOPE_TTS_MODEL="), ".env.example should document TTS model");
 assert(envExample.includes("DASHSCOPE_TTS_VOICE="), ".env.example should document TTS voice");
@@ -70,6 +70,10 @@ assert(chatSchema.includes("image/(?:png|jpeg|webp)"), "chat schema should only 
 assert(llmService.includes("get_resource_pack"), "chat service should retrieve official resource pack context");
 assert(llmService.includes("context_for"), "chat service should build RAG context for each tourist question");
 assert(llmService.includes("vector_context_for"), "chat service should prefer ChromaDB vector context for each tourist question");
+assert(
+  llmService.includes("if not _keyword_sources:") && llmService.includes("return \"\""),
+  "chat service should skip slow vector embedding retrieval when keyword search has no hits",
+);
 assert(llmService.includes("RAG_CONTEXT_LIMIT"), "chat service should cap retrieved context blocks");
 assert(llmService.includes("def _has_direct_title_match"), "chat service should preserve exact spot keyword hits before using vector fallback");
 assert(llmService.includes("_has_direct_title_match(message, keyword_context)"), "exact spot title matches should not be overwritten by stale vector results");
@@ -96,10 +100,10 @@ assert(llmService.includes("结合图片内容和知识库资料回答"), "visio
 const vectorStore = read("src/backend/app/services/vector_store.py");
 assert(vectorStore.includes("chromadb.PersistentClient"), "Vector RAG should persist documents in ChromaDB");
 assert(vectorStore.includes("text_type"), "DashScope embedding calls should distinguish document and query embeddings");
-assert(envExample.includes("text-embedding-v2"), "Vector RAG should use text-embedding-v2");
+assert(envExample.includes("text-embedding-v4"), "Vector RAG should use text-embedding-v4");
 assert(vectorStore.includes("def _embedding_call_kwargs"), "Vector RAG should adapt DashScope embedding parameters by model version");
-assert(vectorStore.includes('if settings.dashscope_embedding_model == "text-embedding-v2"'), "text-embedding-v2 should avoid v3-only embedding parameters");
-assert(vectorStore.includes("EMBEDDING_BATCH_SIZE = 10"), "DashScope text-embedding-v3 batches should stay within the API limit");
+assert(vectorStore.includes('if settings.dashscope_embedding_model == "text-embedding-v2"'), "legacy text-embedding-v2 should avoid v4 dense embedding parameters");
+assert(vectorStore.includes("EMBEDDING_BATCH_SIZE = 10"), "DashScope text-embedding-v4 batches should stay within the API limit");
 assert(vectorStore.includes("EMBEDDING_MAX_ATTEMPTS"), "Vector RAG should retry transient DashScope embedding failures");
 assert(vectorStore.includes("collection.upsert"), "Vector RAG should upsert knowledge chunks into ChromaDB");
 assert(vectorStore.includes("collection.query"), "Vector RAG should query ChromaDB by embedding similarity");

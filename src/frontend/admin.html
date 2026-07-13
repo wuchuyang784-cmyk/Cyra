@@ -14,6 +14,7 @@
           <h1>灵山胜境 AI 数字人运营看板</h1>
         </div>
         <nav class="admin-actions" aria-label="后台导航">
+          <a id="avatarManagementLink" href="./avatar.html">形象管理</a>
           <a id="knowledgeManagementLink" href="./knowledge.html">知识库管理</a>
         </nav>
       </header>
@@ -60,6 +61,22 @@
             </div>
           </div>
           <div id="frequentQuestionsPanel" class="rank-list"></div>
+        </article>
+
+        <article class="panel comment-moderation-panel">
+          <div class="panel-head">
+            <div>
+              <p>游客内容管理</p>
+              <h2>图文评论审核与景点图片入库</h2>
+            </div>
+            <select id="commentStatusFilter" aria-label="筛选评论状态">
+              <option value="">全部状态</option>
+              <option value="pending" selected>待审核</option>
+              <option value="approved">已通过</option>
+              <option value="rejected">已拒绝</option>
+            </select>
+          </div>
+          <div id="commentModerationList" class="comment-moderation-list"></div>
         </article>
       </section>
     </main>

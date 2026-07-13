@@ -4,7 +4,7 @@
 
 ## 已实现
 
-- 游客端：Live2D 数字人、Whisper 语音输入、ChromaDB + text-embedding-v3 知识库 RAG 流式对话、百炼 CosyVoice 语音播报、字级时间戳口型驱动。
+- 游客端：Live2D 数字人、Whisper 语音输入、ChromaDB + text-embedding-v4 知识库 RAG 流式对话、百炼 CosyVoice 语音播报、字级时间戳口型驱动。
 - 管理后台：行为数据指标、游客感受度报告、行业对比、游客画像、官方资料包知识条目、知识文件上传入库。
 - 后端：`/api/chat`、`/api/chat/stream`、`/api/asr`、`/api/tts`、`/api/tts/audio`、`/api/admin/*`。
 - 数据来源：`示范景区公开资料包/` 中的 Word 景点资料和 Excel 游客行为数据。
@@ -51,8 +51,16 @@ Cyra/
 
 ## 一键运行
 
+要求 64 位 Python 3.12。首次部署先运行：
+
 ```powershell
-python run_cyra_demo.py
+.\安装环境.bat
+```
+
+安装成功后运行：
+
+```powershell
+.\启动Cyra.bat
 ```
 
 脚本会启动：
@@ -64,14 +72,4 @@ python run_cyra_demo.py
 
 使用 LLM 和 TTS 前，请在 `src/backend/.env` 配置百炼 API Key。Whisper 语音输入默认使用本地 `base` 模型，项目会优先使用系统 FFmpeg，并在缺失时尝试使用 `imageio-ffmpeg` 的 Python 环境兜底。参考 `src/backend/.env.example`。
 
-首次运行前安装依赖：
-
-```powershell
-pip install -r requirements.txt
-```
-
-如果使用项目虚拟环境：
-
-```powershell
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-```
+安装脚本会自动创建本机可用的 `.venv` 并安装依赖。完整步骤见 `docs/产品部署和使用手册.md`。
